@@ -15,7 +15,10 @@
 
     {% if user.is_authenticated %}
       <p>Hi {{ user.username }} |
-         <a href="{% url 'logout' %}">Logout</a></p>
+        <form action="{% url 'logout' %}" method="post" style="display: inline;">
+          {% csrf_token %}
+          <button type="submit" class="link-button">Logout</button>
+        </form>
     {% endif %}
 
     {% block content %}{% endblock %}

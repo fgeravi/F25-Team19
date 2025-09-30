@@ -17,6 +17,8 @@
       <label><input type="checkbox" name="remember_me"> Remember me</label>
     </p>
 
+    <p>Don't have an account? <a href="{% url 'register' %}">Sign up here</a></p>
+
     {% if next %}
       <input type="hidden" name="next" value="{{ next }}">
     {% endif %}
