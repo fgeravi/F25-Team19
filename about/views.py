@@ -8,7 +8,7 @@ def about_view(request):
         "product_name": "TBD",        
         "product_description": "TBD",   
 
-        # Placeholder team roster; add/edit as needed
+        #Team Roster
         "team_members": [
             {"name": "Dan Geravi", "role": "Developer", "email": "fgeravi@clemson.edu"},
             {"name": "Member 2",   "role": "Developer", "email": "tbd@example.com"},
