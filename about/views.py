@@ -1,5 +1,4 @@
-from django.shortcuts import render
-
+"""from django.shortcuts import render
 def about_view(request):
     context = {
         "team_number": "19",
@@ -18,4 +17,19 @@ def about_view(request):
 
         "repo_url": "https://github.com/fgeravi/F25-Team19",
     }
-    return render(request, "about/about.html", context)
+    return render(request, "about/about.html", context)"""
+
+from django.shortcuts import render
+from .models import About
+
+TEAM_NUMBER = 19
+
+def about_page(request, team=19):
+    row = (About.objects
+           .filter(team_num=team)
+           .order_by('-version_number')
+           .first())
+    team = getattr(row, 'team_num', None)
+    return render(request, "about/about.html", {"row": row, "team": team})
+
+

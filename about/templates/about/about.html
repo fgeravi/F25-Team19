@@ -1,17 +1,28 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>About</title>
-</head>
-<body>
-    <h1>About This Project</h1>
-    <ul>
-        <li><strong>Team #:</strong> {{ team_number }}</li>
-        <li><strong>Version (Sprint #):</strong> {{ version }}</li>
-        <li><strong>Release Date:</strong> {{ release_date }}</li>
-        <li><strong>Product Name:</strong> {{ product_name }}</li>
-        <li><strong>Product Description:</strong> {{ product_description }}</li>
-    </ul>
-</body>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>About – Team {{ team|default:"(unknown)" }}</title>
+    <style>
+      body { font-family: system-ui, Arial, sans-serif; margin: 2rem; }
+      .card { border: 1px solid #ddd; padding: 1rem 1.25rem; border-radius: 8px; max-width: 720px; }
+      .label { font-weight: 600; width: 220px; display: inline-block; }
+    </style>
+  </head>
+  <body>
+    <h1>About – Team {{ team|default:"(unknown)" }}</h1>
+
+    {% if row %}
+      <div class="card">
+        <p><span class="label">Team #:</span> {{ row.team_num }}</p>
+        <p><span class="label">Version # (Sprint #):</span> {{ row.version_number }}</p>
+        <p><span class="label">Release Date:</span>
+          {% if row.release_date %}{{ row.release_date|date:"Y-m-d" }}{% else %}TBD{% endif %}
+        </p>
+        <p><span class="label">Product Description:</span> {{ row.product_description|default:"TBD" }}</p>
+      </div>
+    {% else %}
+      <p>No entries found. Insert at least one row in the "about" table.</p>
+    {% endif %}
+  </body>
 </html>

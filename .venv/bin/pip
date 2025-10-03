@@ -1,4 +1,4 @@
-#!/Users/nathankitchens/Documents/GitHub/F25-Team19/.venv/bin/python3
+#!/Users/nathankitchens/Documents/GitHub/F25-Team19/.venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "users",
+    "about",
 ]
 
 MIDDLEWARE = [
@@ -75,6 +76,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+DB_NAME = config("DB_NAME", default="Team19_DB")
+DB_USER = config("DB_USER", default="Team19")  
+DB_PASSWORD = config("DB_PASSWORD", default="")  
+DB_HOST = config("DB_HOST", default="cpsc4910-f25.cobd8enwsupz.us-east-1.rds.amazonaws.com")
+DB_PORT = config("DB_PORT", default="3306")
+DB_SSL_CA = config("DB_SSL_CA", default="")  
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -82,11 +90,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'Team19_DB',
-        'USER': 'CPSC4911_admin',
-        'PASSWORD': 'ytnSLOSNK4cB0ulSmGqJ',
-        'HOST': '127.0.0.1',
-        'PORT': config('DB_PORT', default='3306'),
+        'NAME': DB_NAME,
+        'USER': DB_USER,
+        'PASSWORD': DB_PASSWORD,
+        'HOST': DB_HOST,
+        'PORT': DB_PORT,
     }
 }
 
