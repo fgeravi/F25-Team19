@@ -10,9 +10,10 @@ def about_view(request):
         #Team Roster
         "team_members": [
             {"name": "Dan Geravi", "role": "Developer", "email": "fgeravi@clemson.edu"},
-            {"name": "Member 2",   "role": "Developer", "email": "tbd@example.com"},
-            {"name": "Member 3",   "role": "Developer", "email": "tbd@example.com"},
-            {"name": "Member 4",   "role": "Developer", "email": "tbd@example.com"},
+            {"name": "Zach Wooten",   "role": "Developer", "email": "zbwoote@g.clemson.edu"},
+            {"name": "Nathan Kitchens",   "role": "Developer", "email": "nkitche@g.clemson.edu"},
+            {"name": "Nate WIllis",   "role": "Developer", "email": "nlw2@clemson.edu"},
+            {"name": "Tian Xue",   "role": "Developer", "email": "xue7@clemson.edu"},
         ],
 
         "repo_url": "https://github.com/fgeravi/F25-Team19",
