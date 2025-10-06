@@ -1,4 +1,4 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, SponsorProfile, DriverProfile
 
@@ -46,6 +46,28 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("username", "email")
     ordering = ("username",)
     filter_horizontal = ("groups", "user_permissions")
+
+    # SOFT DELETE FEATURE 
+
+    # Disable the default delete button
+    def has_delete_permission(self, request, obj=None):
+        return False  # No one can delete users
+    
+    actions = ["hide_users"]
+
+    def hide_users(self, request, queryset):
+        updated = queryset.update(is_active=False)
+        self.message_user(
+            request,
+            f"{updated} user(s) were successfully hidden.",
+            messages.SUCCESS,
+        )
+    hide_users.short_description = "Hide selected users (deactivate)"
+
+    # hide inactive users by default
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(is_active=True)  # Only show active users
 
 
 # --------------------------
