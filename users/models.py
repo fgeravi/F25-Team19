@@ -3,6 +3,7 @@ from django.db import models
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from organizations.models import Organization
 
 class User(AbstractUser):
     """
@@ -21,6 +22,7 @@ class SponsorProfile(models.Model):
     """
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     company_name = models.CharField(max_length=255)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
     # future sponsor-specific fields as needed
 
     def __str__(self):
