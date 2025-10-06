@@ -7,4 +7,7 @@
   {% else %}
     <p><a href="{% url 'login' %}">Login</a></p>
   {% endif %}
+  <a href="{% url 'rewards:dashboard' %}" class="btn btn-primary btn-lg">
+    View My Points Dashboard
+</a>
 {% endblock %}

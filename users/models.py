@@ -34,6 +34,8 @@ class DriverProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     license_number = models.CharField(max_length=50)
     vehicle_info = models.CharField(max_length=255)
+    # Added points field that is not in the ERD, so that points are tracked live rather than having to refer to audit log history to sum up points
+    current_points = models.PositiveIntegerField(default=0)
     # future driver-specific fields as needed
 
     def __str__(self):
