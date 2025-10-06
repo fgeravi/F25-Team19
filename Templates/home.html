@@ -7,7 +7,19 @@
   {% else %}
     <p><a href="{% url 'login' %}">Login</a></p>
   {% endif %}
-  <a href="{% url 'rewards:dashboard' %}" class="btn btn-primary btn-lg">
-    View My Points Dashboard
-</a>
+  {% if user.is_authenticated %}
+
+    {% if user.is_sponsor %}
+        <a href="{% url 'rewards:add_points' %}" class="btn btn-primary">
+            Award Points to a Driver
+        </a>
+
+    {% elif user.is_driver %}
+        <a href="{% url 'rewards:dashboard' %}" class="btn btn-primary">
+            View My Points Dashboard
+        </a>
+    
+    {% endif %}
+
+{% endif %}
 {% endblock %}
