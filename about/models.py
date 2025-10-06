@@ -5,6 +5,7 @@ class About(models.Model):
     team_num = models.IntegerField()
     version_number = models.IntegerField()
     release_date = models.DateField(null=True, blank=True)
+    product_name = models.TextField(null=True, blank=True)
     product_description = models.TextField(null=True, blank=True)
 
     class Meta:

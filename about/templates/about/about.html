@@ -19,6 +19,7 @@
         <p><span class="label">Release Date:</span>
           {% if row.release_date %}{{ row.release_date|date:"Y-m-d" }}{% else %}TBD{% endif %}
         </p>
+        <p><span class="label">Product Name:</span> {{ row.product_name|default:"TBD" }}</p>
         <p><span class="label">Product Description:</span> {{ row.product_description|default:"TBD" }}</p>
       </div>
     {% else %}
