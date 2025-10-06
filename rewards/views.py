@@ -5,6 +5,9 @@ from users.models import DriverProfile, User, SponsorProfile
 from django.shortcuts import redirect
 from django.contrib import messages
 from .models import award_points_to_driver
+from django.utils import timezone
+from datetime import timedelta 
+from django.db.models import Sum 
 
 
 @login_required
@@ -16,6 +19,15 @@ def point_dashboard(request):
         driver_profile = request.user.driverprofile
         current_balance = driver_profile.current_points
         transactions = PointChangeAudit.objects.filter(driver=request.user)
+        seven_days_ago = timezone.now() - timedelta(days=7)
+
+        weekly_earnings = PointChangeAudit.objects.filter(
+            driver=request.user,
+            date__gte=seven_days_ago,
+            point_change_amt__gt=0
+        ).aggregate(total=Sum('point_change_amt'))['total'] or 0
+
+
     except DriverProfile.DoesNotExist:
         current_balance = 0
         transactions = []
@@ -23,6 +35,7 @@ def point_dashboard(request):
     context = {
         'current_balance': current_balance,
         'transactions': transactions,
+        'weekly_earnings': weekly_earnings,
     }
     
     return render(request, 'rewards/dashboard.html', context)
@@ -31,10 +44,9 @@ def point_dashboard(request):
 
 @login_required
 def add_points_view(request):
-    # Ensure only sponsors can access this page
     if not request.user.is_sponsor:
         messages.error(request, "You do not have permission to access this page.")
-        return redirect('home') # Or wherever you want to redirect non-sponsors
+        return redirect('home')
 
     if request.method == 'POST':
         try:
@@ -45,7 +57,6 @@ def add_points_view(request):
             sponsor_user = request.user
             driver_user = User.objects.get(pk=driver_id, is_driver=True)
 
-            # Call the function from your models.py
             success, message = award_points_to_driver(
                 sponsor_user=sponsor_user,
                 driver_user=driver_user,
@@ -67,7 +78,6 @@ def add_points_view(request):
             
         return redirect('rewards:add_points')
 
-    # For a GET request, show the form and provide a list of all drivers
     drivers = User.objects.filter(is_driver=True, is_active=True)
     context = {
         'drivers': drivers
