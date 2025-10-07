@@ -4,7 +4,15 @@
 <div class="container mt-4">
     <h1>My Points Dashboard</h1>
     <hr>
-    
+
+    {% with org=request.user.driverprofile.organization %}
+        {% if org and org.welcome_config and org.welcome_config.is_active and org.welcome_config.welcome_text %}
+            <div class="alert alert-info my-3" role="alert" style="white-space: pre-line;">
+                {{ org.welcome_config.welcome_text }}
+            </div>
+        {% endif %}
+    {% endwith %}
+
     <div class="card text-center mb-4">
         <div class="card-header">
             Current Point Balance
@@ -14,12 +22,11 @@
         </div>
     </div>
 
-    </div>
-
-
     <div class="col-md-6 mb-4">
         <div class="card text-center text-white bg-success">
-            <div class="card-header">Points Earned This Week</div>
+            <div class="card-header">
+                Points Earned This Week
+            </div>
             <div class="card-body">
                 <h2 class="card-title">+{{ weekly_earnings }} Points</h2>
             </div>
@@ -38,22 +45,22 @@
         </thead>
         <tbody>
             {% for trx in transactions %}
-            <tr>
-                <td>{{ trx.date|date:"N j, Y, P" }}</td>
-                <td>
-                    {% if trx.point_change_amt > 0 %}
-                        <span class="text-success">+{{ trx.point_change_amt }}</span>
-                    {% else %}
-                        <span class="text-danger">{{ trx.point_change_amt }}</span>
-                    {% endif %}
-                </td>
-                <td>{{ trx.reason|default:"No reason provided" }}</td>
-                <td>{{ trx.new_point_balance }}</td>
-            </tr>
+                <tr>
+                    <td>{{ trx.date|date:"N j, Y, P" }}</td>
+                    <td>
+                        {% if trx.point_change_amt > 0 %}
+                            <span class="text-success">+{{ trx.point_change_amt }}</span>
+                        {% else %}
+                            <span class="text-danger">{{ trx.point_change_amt }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ trx.reason|default:"No reason provided" }}</td>
+                    <td>{{ trx.new_point_balance }}</td>
+                </tr>
             {% empty %}
-            <tr>
-                <td colspan="4" class="text-center">You have no transactions yet.</td>
-            </tr>
+                <tr>
+                    <td colspan="4" class="text-center">You have no transactions yet.</td>
+                </tr>
             {% endfor %}
         </tbody>
     </table>
