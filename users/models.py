@@ -77,6 +77,11 @@ class DriverNotification(models.Model):
     content = models.TextField()
     sent_at = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
+    # NEW: mark-as-read support
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-sent_at"]
 
     def __str__(self):
         return f"Notification<{self.id}> for {self.driver_user.username}"

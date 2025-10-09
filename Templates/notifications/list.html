@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<h2>Notifications</h2>
+
+{% if messages %}
+  <ul>
+    {% for m in messages %}
+      <li>{{ m }}</li>
+    {% endfor %}
+  </ul>
+{% endif %}
+
+<ul>
+  {% for n in notifications %}
+    <li style="margin: .5rem 0; padding:.5rem; border:1px solid #ddd; border-radius:.25rem;">
+      <div>
+        <strong>{{ n.sent_at }}</strong>
+        {% if n.is_read %}<span style="opacity:.6;">(read)</span>{% else %}<span>(new)</span>{% endif %}
+      </div>
+      <div>{{ n.content|linebreaksbr }}</div>
+      {% if n.metadata.type %}<small>Type: {{ n.metadata.type }}</small>{% endif %}
+      {% if not n.is_read %}
+        <form method="post" action="{% url 'notification_mark_read' n.pk %}" style="margin-top:.25rem;">
+          {% csrf_token %}
+          <button type="submit">Mark as read</button>
+        </form>
+      {% endif %}
+    </li>
+  {% empty %}
+    <li>No notifications yet.</li>
+  {% endfor %}
+</ul>
+{% endblock %}
