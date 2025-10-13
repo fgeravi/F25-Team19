@@ -5,6 +5,15 @@
   <form method="post">
     {% csrf_token %}
     {{ form.non_field_errors }}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-danger" role="alert">
+        {% for error in form.non_field_errors %}
+          <p>{{ error }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+
     <p>
       <label for="id_username">Username</label><br>
       {{ form.username }}

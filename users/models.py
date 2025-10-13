@@ -65,6 +65,7 @@ class SponsorWelcome(models.Model):
         Organization,
         on_delete=models.CASCADE,
         related_name="welcome_config",
+        null=True,  # allow null for default message
     )
     is_active = models.BooleanField(default=True)
     welcome_text = models.TextField(
@@ -144,7 +145,7 @@ def auto_send_driver_welcome(sender, instance, created, **kwargs):
 
 def _find_user_by_username(username: str):
     try:
-        return User.objects(**{User.USERNAME_FIELD: username})
+        return User.objects.get(**{User.USERNAME_FIELD: username})
     except User.DoesNotExist:
         return None
     
@@ -154,6 +155,7 @@ def _lockout_attempts() -> int:
 def _lockout_cooldown_minutes() -> int:
     return getattr(settings, "LOCKOUT_COOLDOWN_MINUTES", 5)
 
+@receiver(user_login_failed)
 def on_login_failed(sender, credentials, request, **kwargs):
     username = (credentials or {}).get("username")
     if not username:
@@ -179,9 +181,10 @@ def on_login_failed(sender, credentials, request, **kwargs):
             user.lockout_until = timezone.now() + timedelta(minutes=minutes)
         else:
             # permanent lockout
-            user.lockout_until = timezone.now() + timedelta(hours=1)
+            user.lockout_until = timezone.now() + timedelta(days=365*100)  # 100 years
         user.save(update_fields=["failed_login_attempts", "lockout_until"])
 
+@receiver(user_logged_in)
 def on_login_success(sender, user, request, **kwargs):
     # reset failed attempts on successful login
     if getattr(user, "failed_login_attempts", 0) or getattr(user, "lockout_until", None):
