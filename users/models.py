@@ -1,4 +1,8 @@
+from __future__ import annotations
+from datetime import timedelta
 from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.signals import user_login_failed, user_logged_in
+from django.utils import timezone
 from django.db import models
 from django.conf import settings
 from django.db.models.signals import post_save
@@ -12,6 +16,12 @@ class User(AbstractUser):
     """
     is_sponsor = models.BooleanField(default=False)
     is_driver = models.BooleanField(default=False)
+
+    failed_login_attempts = models.PositiveIntegerField(default=0)
+    lockout_until = models.DateTimeField(null=True, blank=True)
+
+    def is_locked_out(self) -> bool:
+        return bool(self.lockout_until and self.lockout_until > timezone.now())
 
     def __str__(self):
         return self.username
@@ -129,3 +139,52 @@ def auto_send_driver_welcome(sender, instance, created, **kwargs):
             content=current_welcome_message(instance.organization),
             metadata={"type": "welcome"},
         )
+
+# Lockout logic for admin/staff users on failed login attempts
+
+def _find_user_by_username(username: str):
+    try:
+        return User.objects(**{User.USERNAME_FIELD: username})
+    except User.DoesNotExist:
+        return None
+    
+def _lockout_attempts() -> int:
+    return getattr(settings, "MAX_FAILED_LOGIN_ATTEMPTS", 3)
+
+def _lockout_cooldown_minutes() -> int:
+    return getattr(settings, "LOCKOUT_COOLDOWN_MINUTES", 5)
+
+def on_login_failed(sender, credentials, request, **kwargs):
+    username = (credentials or {}).get("username")
+    if not username:
+        return 
+    
+    user = _find_user_by_username(username)
+    if not user:
+        return
+    
+    if not (user.is_staff or user.is_superuser):
+        return
+    
+    if user.lockout_until and user.lockout_until > timezone.now():
+        # already locked out
+        return
+    
+    user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+
+    if user.failed_login_attempts >= _lockout_attempts():
+        # lock the user out
+        minutes = _lockout_cooldown_minutes()
+        if minutes and minutes > 0:
+            user.lockout_until = timezone.now() + timedelta(minutes=minutes)
+        else:
+            # permanent lockout
+            user.lockout_until = timezone.now() + timedelta(hours=1)
+        user.save(update_fields=["failed_login_attempts", "lockout_until"])
+
+def on_login_success(sender, user, request, **kwargs):
+    # reset failed attempts on successful login
+    if getattr(user, "failed_login_attempts", 0) or getattr(user, "lockout_until", None):
+        user.failed_login_attempts = 0
+        user.lockout_until = None
+        user.save(update_fields=["failed_login_attempts", "lockout_until"])
