@@ -33,6 +33,10 @@ ALLOWED_HOSTS = []
 # custom AUTH model
 AUTH_USER_MODEL = "users.User"
 
+# custom auth backend to handle lockouts
+AUTHENTICATION_BACKENDS = [
+    "users.backends.LockedoutBackend",
+]
 
 # Application definition
 

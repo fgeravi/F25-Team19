@@ -5,6 +5,9 @@ from .models import User, SponsorProfile, DriverProfile
 # Optional: custom forms if needed
 from django import forms
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
+from .forms import LockedOutAdminAuthenticationForm
+
+admin.site.login_form = LockedOutAdminAuthenticationForm
 
 # --------------------------
 # User Forms

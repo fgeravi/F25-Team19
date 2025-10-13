@@ -175,14 +175,13 @@ def on_login_failed(sender, credentials, request, **kwargs):
     user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
 
     if user.failed_login_attempts >= _lockout_attempts():
-        # lock the user out
         minutes = _lockout_cooldown_minutes()
-        if minutes and minutes > 0:
-            user.lockout_until = timezone.now() + timedelta(minutes=minutes)
-        else:
-            # permanent lockout
-            user.lockout_until = timezone.now() + timedelta(days=365*100)  # 100 years
-        user.save(update_fields=["failed_login_attempts", "lockout_until"])
+        user.lockout_until = (
+            timezone.now() + timedelta(minutes=minutes)
+            if minutes and minutes > 0
+            else timezone.now() + timedelta(days=365*100)  # effectively permanent lockout
+        )
+    user.save(update_fields=["failed_login_attempts", "lockout_until"])
 
 @receiver(user_logged_in)
 def on_login_success(sender, user, request, **kwargs):
