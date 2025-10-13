@@ -18,6 +18,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from about.views import about_page
+from users.forms import LockedOutAdminAuthenticationForm
+
+admin.site.login_form = LockedOutAdminAuthenticationForm
 
 urlpatterns = [
     path("admin/", admin.site.urls),
