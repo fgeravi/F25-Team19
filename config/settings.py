@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     "users",
     "about",
     "organizations",
-    "rewards"
+    "rewards",
+    "audit"
 ]
 
 MIDDLEWARE = [
