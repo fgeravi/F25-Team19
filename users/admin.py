@@ -1,13 +1,11 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, SponsorProfile, DriverProfile
-
-# Optional: custom forms if needed
-from django import forms
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from .forms import LockedOutAdminAuthenticationForm
-from .models import FailedLoginAttempt
+from .models import User, SponsorProfile, DriverProfile, FailedLoginAttempt
+from .config import LockoutConfig
 
+# Set custom login form for admin
 admin.site.login_form = LockedOutAdminAuthenticationForm
 
 # --------------------------
@@ -24,6 +22,7 @@ class CustomUserChangeForm(UserChangeForm):
         model = User
         fields = ("username", "email", "is_sponsor", "is_driver")
 
+
 # --------------------------
 # User Admin
 # --------------------------
@@ -33,7 +32,7 @@ class UserAdmin(BaseUserAdmin):
 
     list_display = ("username", "email", "is_sponsor", "is_driver", "is_staff", "is_superuser")
     list_filter = ("is_sponsor", "is_driver", "is_staff", "is_superuser")
-    
+
     fieldsets = (
         (None, {"fields": ("username", "email", "password")}),
         ("Permissions", {"fields": ("is_sponsor", "is_driver", "is_staff", "is_superuser", "groups", "user_permissions")}),
@@ -51,35 +50,47 @@ class UserAdmin(BaseUserAdmin):
     ordering = ("username",)
     filter_horizontal = ("groups", "user_permissions")
 
-    # SOFT DELETE FEATURE 
+    actions = ["hide_users", "unlock_users"]
 
-    # Disable the default delete button
+    # --------------------------
+    # Soft delete
+    # --------------------------
     def has_delete_permission(self, request, obj=None):
         return False  # No one can delete users
-    
-    actions = ["hide_users"]
 
     def hide_users(self, request, queryset):
         updated = queryset.update(is_active=False)
-        self.message_user(
-            request,
-            f"{updated} user(s) were successfully hidden.",
-            messages.SUCCESS,
-        )
+        self.message_user(request, f"{updated} user(s) were successfully hidden.", messages.SUCCESS)
     hide_users.short_description = "Hide selected users (deactivate)"
 
-    # hide inactive users by default
+    # --------------------------
+    # Unlock action
+    # --------------------------
+    def unlock_users(self, request, queryset):
+        updated = queryset.update(lockout_until=None, failed_login_attempts=0)
+        self.message_user(request, f"{updated} user(s) were successfully unlocked.", messages.SUCCESS)
+    unlock_users.short_description = "Unlock selected users"
+
+    # --------------------------
+    # Show only active users
+    # --------------------------
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.filter(is_active=True)  # Only show active users
+        return qs.filter(is_active=True)
 
 
 # --------------------------
-# Register models
+# Lockout Config Admin
 # --------------------------
-admin.site.register(User, UserAdmin)
-admin.site.register(SponsorProfile)
-admin.site.register(DriverProfile)
+@admin.register(LockoutConfig)
+class LockoutConfigAdmin(admin.ModelAdmin):
+    list_display = ("max_failed_attempts", "lockout_cooldown_minutes", "updated_at")
+    readonly_fields = ("updated_at",)
+
+    def has_add_permission(self, request):
+        # Only allow one global config
+        return not LockoutConfig.objects.exists()
+
 
 # --------------------------
 # FailedLoginAttempt Admin
@@ -105,21 +116,30 @@ class FailedLoginAttemptAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
-    
+
     def export_csv(self, request, queryset):
         import csv
         from django.http import HttpResponse
+
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = 'attachment; filename="failed_login_attempts.csv"'
         writer = csv.writer(response)
         writer.writerow(["Created At", "Username", "User", "User Agent", "Message"])
         for row in queryset.iterator():
-           writer.writerow([
-               row.created_at.isoformat(),
-               row.username,
-               row.user_id or "",
-               (row.user_agent or "").replace("\n", " ")
-               (row.message or "").replace("\n", " ")
-           ])
+            writer.writerow([
+                row.created_at.isoformat(),
+                row.username,
+                row.user_id or "",
+                (row.user_agent or "").replace("\n", " "),
+                (row.message or "").replace("\n", " ")
+            ])
         return response
     export_csv.short_description = "Export Selected to CSV"
+
+
+# --------------------------
+# Register remaining models
+# --------------------------
+admin.site.register(User, UserAdmin)
+admin.site.register(SponsorProfile)
+admin.site.register(DriverProfile)

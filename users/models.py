@@ -150,10 +150,14 @@ def _find_user_by_username(username: str):
         return None
     
 def _lockout_attempts() -> int:
-    return getattr(settings, "MAX_FAILED_LOGIN_ATTEMPTS", 3)
+    from .models import LockoutConfig
+    config = LockoutConfig.get_config()
+    return config.max_failed_attempts
 
 def _lockout_cooldown_minutes() -> int:
-    return getattr(settings, "LOCKOUT_COOLDOWN_MINUTES", 5)
+    from .models import LockoutConfig
+    config = LockoutConfig.get_config()
+    return config.lockout_cooldown_minutes
 
 @receiver(user_login_failed)
 def on_login_failed(sender, credentials, request, **kwargs):
