@@ -30,7 +30,17 @@ class UserAdmin(BaseUserAdmin):
     form = CustomUserChangeForm
     add_form = CustomUserCreationForm
 
-    list_display = ("username", "email", "is_sponsor", "is_driver", "is_staff", "is_superuser")
+    list_display = (
+        "username",
+        "email",
+        "is_sponsor",
+        "is_driver",
+        "is_staff",
+        "is_superuser",
+        "failed_login_attempts",
+        "lockout_status",
+        "lockout_until",
+    )
     list_filter = ("is_sponsor", "is_driver", "is_staff", "is_superuser")
 
     fieldsets = (
@@ -49,8 +59,15 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("username", "email")
     ordering = ("username",)
     filter_horizontal = ("groups", "user_permissions")
-
     actions = ["hide_users", "unlock_users"]
+
+    # --------------------------
+    # Custom columns
+    # --------------------------
+    def lockout_status(self, obj):
+        return obj.is_locked_out()
+    lockout_status.boolean = True
+    lockout_status.short_description = "Locked Out?"
 
     # --------------------------
     # Soft delete

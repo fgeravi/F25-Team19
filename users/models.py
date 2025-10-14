@@ -8,12 +8,13 @@ from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from organizations.models import Organization
+from .config import LockoutConfig
 
 
+# ----------------------
+# Custom User Model
+# ----------------------
 class User(AbstractUser):
-    """
-    Custom user model for project.
-    """
     is_sponsor = models.BooleanField(default=False)
     is_driver = models.BooleanField(default=False)
 
@@ -27,45 +28,38 @@ class User(AbstractUser):
         return self.username
 
 
+# ----------------------
+# User Profiles
+# ----------------------
 class SponsorProfile(models.Model):
-    """
-    Profile for sponsor users.
-    """
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     company_name = models.CharField(max_length=255)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
-    # future sponsor-specific fields as needed
 
     def __str__(self):
         return f"Sponsor: {self.company_name}"
 
 
 class DriverProfile(models.Model):
-    """
-    Profile for driver users.
-    """
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     license_number = models.CharField(max_length=50)
     vehicle_info = models.CharField(max_length=255)
-    # Added points field that is not in the ERD, so that points are tracked live rather than having to refer to audit log history to sum up points
     current_points = models.PositiveIntegerField(default=0)
-    # driver is affiliated with one sponsor organization
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True)
-    # future driver-specific fields as needed
 
     def __str__(self):
         return f"Driver: {self.user.username}"
 
 
+# ----------------------
 # Sponsor Welcome + Notifications
-
+# ----------------------
 class SponsorWelcome(models.Model):
-    # One message per sponsor organization
     sponsor_org = models.OneToOneField(
         Organization,
         on_delete=models.CASCADE,
         related_name="welcome_config",
-        null=True,  # allow null for default message
+        null=True,
     )
     is_active = models.BooleanField(default=True)
     welcome_text = models.TextField(
@@ -79,7 +73,6 @@ class SponsorWelcome(models.Model):
 
 
 class DriverNotification(models.Model):
-    # In-app notifs
     driver_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -88,7 +81,6 @@ class DriverNotification(models.Model):
     content = models.TextField()
     sent_at = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
-    # NEW: mark-as-read support
     is_read = models.BooleanField(default=False)
 
     class Meta:
@@ -98,16 +90,18 @@ class DriverNotification(models.Model):
         return f"Notification<{self.id}> for {self.driver_user.username}"
 
 
-# Helper functions
-
+# ----------------------
+# Helper Functions
+# ----------------------
 def is_sponsor(user) -> bool:
     return getattr(user, "is_sponsor", False)
+
 
 def is_driver(user) -> bool:
     return getattr(user, "is_driver", False)
 
+
 def current_welcome_message(org: Organization | None):
-    # return the active org message if set, else any active message, else default
     if org:
         try:
             sw = SponsorWelcome.objects.get(sponsor_org=org, is_active=True)
@@ -122,18 +116,17 @@ def current_welcome_message(org: Organization | None):
     return "Welcome aboard!"
 
 
-# Signals
-
+# ----------------------
+# Signals for Profiles
+# ----------------------
 @receiver(post_save, sender=Organization)
 def ensure_org_welcome(sender, instance, created, **kwargs):
-    # ensure each sponsor organization gets a welcome config row
     if created:
         SponsorWelcome.objects.get_or_create(sponsor_org=instance)
 
 
 @receiver(post_save, sender=DriverProfile)
 def auto_send_driver_welcome(sender, instance, created, **kwargs):
-    # when a driver profile is created, send a welcome message from their sponsor org
     if created and instance.user and is_driver(instance.user):
         DriverNotification.objects.create(
             driver_user=instance.user,
@@ -141,75 +134,88 @@ def auto_send_driver_welcome(sender, instance, created, **kwargs):
             metadata={"type": "welcome"},
         )
 
-# Lockout logic for admin/staff users on failed login attempts
 
+# ----------------------
+# Lockout Helpers
+# ----------------------
 def _find_user_by_username(username: str):
     try:
         return User.objects.get(**{User.USERNAME_FIELD: username})
     except User.DoesNotExist:
         return None
-    
+
+
 def _lockout_attempts() -> int:
-    from .models import LockoutConfig
-    config = LockoutConfig.get_config()
-    return config.max_failed_attempts
+    return LockoutConfig.get_config().max_failed_attempts
+
 
 def _lockout_cooldown_minutes() -> int:
-    from .models import LockoutConfig
-    config = LockoutConfig.get_config()
-    return config.lockout_cooldown_minutes
+    return LockoutConfig.get_config().lockout_cooldown_minutes
 
+
+# ----------------------
+# Signals: Lockout & Audit
+# ----------------------
 @receiver(user_login_failed)
 def on_login_failed(sender, credentials, request, **kwargs):
     username = (credentials or {}).get("username")
     if not username:
-        return 
-    
+        return
+
     user = _find_user_by_username(username)
+
+    # Audit logging
+    FailedLoginAttempt.objects.create(
+        username=username,
+        user=user,
+        user_agent=request.META.get("HTTP_USER_AGENT") if request else None,
+        message="Failed login attempt"
+    )
+
     if not user:
         return
-    
-    if not (user.is_staff or user.is_superuser):
-        return
-    
+
+    # Increment failed attempts for ALL users
     if user.lockout_until and user.lockout_until > timezone.now():
-        # already locked out
-        return
-    
-    user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+        return  # Already locked out
+
+    user.failed_login_attempts += 1
 
     if user.failed_login_attempts >= _lockout_attempts():
         minutes = _lockout_cooldown_minutes()
         user.lockout_until = (
             timezone.now() + timedelta(minutes=minutes)
-            if minutes and minutes > 0
-            else timezone.now() + timedelta(days=365*100)  # effectively permanent lockout
+            if minutes > 0
+            else timezone.now() + timedelta(days=365*100)
         )
+
     user.save(update_fields=["failed_login_attempts", "lockout_until"])
+
 
 @receiver(user_logged_in)
 def on_login_success(sender, user, request, **kwargs):
-    # reset failed attempts on successful login
+    # Reset failed attempts on successful login
     if getattr(user, "failed_login_attempts", 0) or getattr(user, "lockout_until", None):
         user.failed_login_attempts = 0
         user.lockout_until = None
         user.save(update_fields=["failed_login_attempts", "lockout_until"])
 
-# Audit log of failed login attempts
+
+# ----------------------
+# Audit Log Model
+# ----------------------
 class FailedLoginAttempt(models.Model):
-    username = models.CharField(max_length=254, db_index=True, help_text="The username that was attempted.")
+    username = models.CharField(max_length=254, db_index=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="The user account if the username matched an existing user.",
     )
     user_agent = models.TextField(null=True, blank=True)
-    message = models.TextField(null=True, blank=True, help_text="Additional info about the failure.")
+    message = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
-    
     class Meta:
         ordering = ["-created_at"]
         indexes = [
