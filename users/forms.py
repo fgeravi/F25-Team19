@@ -1,13 +1,11 @@
 # users/forms.py
 
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
-from django.utils import timezone
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import get_user_model
-# Import your custom User model
-from .models import User  # Or from users.models import User
+from django.utils import timezone
+from .models import User, DriverProfile, SponsorProfile
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField()
@@ -68,3 +66,32 @@ class LockedOutAdminAuthenticationForm(AdminAuthenticationForm):
 
         # Not locked, proceed with normal auth (does the actual authenticate())
         return super().clean()
+
+
+# account editing forms
+class AccountForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["username", "email"]
+        widgets = {
+            "username": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+        }
+
+class DriverProfileForm(forms.ModelForm):
+    class Meta:
+        model = DriverProfile
+        fields = ["license_number", "vehicle_info"]
+        widgets = {
+            "license_number": forms.TextInput(attrs={"class": "form-control"}),
+            "vehicle_info": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
+class SponsorProfileForm(forms.ModelForm):
+    class Meta:
+        model = SponsorProfile
+        fields = ["company_name"]
+        widgets = {
+            "company_name": forms.TextInput(attrs={"class": "form-control"}),
+        }
+
