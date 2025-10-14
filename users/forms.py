@@ -24,6 +24,12 @@ class LockedOutAuthenticationForm(AuthenticationForm):
             if user.lockout_until > timezone.now():
                 when = timezone.localtime(user.lockout_until).strftime('%Y-%m-%d %H:%M:%S')
                 raise forms.ValidationError(f"This account is locked until {when}.", code='locked_out')
+    
+    def get_session_expiry(self):
+        """Return session expiry based on remember_me field."""
+        if self.cleaned_data.get('remember_me'):
+            return 1209600  # 2 weeks in seconds
+        return 0  # Session expires when browser closes
 
 # For admin site login        
 class LockedOutAdminAuthenticationForm(AdminAuthenticationForm):

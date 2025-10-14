@@ -6,3 +6,10 @@ class LockedoutBackend(ModelBackend):
         if getattr(user, "lockout_until", None) and user.lockout_until > timezone.now():
             return False
         return super().user_can_authenticate(user)
+
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        user = super().authenticate(request, username, password, **kwargs)
+        if user and request and hasattr(request, 'session'):
+            if hasattr(request, 'form') and hasattr(request.form, 'get_session_expiry'):
+                request.session.set_expiry(request.form.get_session_expiry())
+        return user
