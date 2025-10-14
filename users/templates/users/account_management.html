@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<h2>Manage Your Account</h2>
+
+{% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<form method="POST">
+    {% csrf_token %}
+    <fieldset>
+        <legend>Account Information</legend>
+        {{ user_form.as_p }}
+    </fieldset>
+
+    {% if driver_form %}
+        <fieldset>
+            <legend>Driver Profile</legend>
+            {{ driver_form.as_p }}
+            <p>Current Points: {{ request.user.driverprofile.current_points }}</p>
+        </fieldset>
+    {% endif %}
+
+    {% if sponsor_form %}
+        <fieldset>
+            <legend>Sponsor Profile</legend>
+            {{ sponsor_form.as_p }}
+        </fieldset>
+    {% endif %}
+
+    <button type="submit">Save Changes</button>
+</form>
+
+<hr>
+<h3>Change Password</h3>
+<p>
+    <a href="{% url 'password_change' %}">Click here to change your password</a>
+</p>
+
+{% endblock %}

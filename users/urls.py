@@ -2,6 +2,7 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from . import views
 from .forms import LockedOutAuthenticationForm
+from .views import account_management
 
 
 urlpatterns = [
@@ -13,4 +14,10 @@ urlpatterns = [
     # --- Notifications ---
     path("notifications/", views.notifications_list, name="notifications_list"),
     path("notifications/<int:pk>/read/", views.notification_mark_read, name="notification_mark_read"),
+
+    # --- Account Management --- 
+    path("account/", account_management, name="account_management"),
+    # Password change views
+    path('password-change/', auth_views.PasswordChangeView.as_view(template_name='users/password_change.html'), name='password_change'),
+    path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='users/password_change_done.html'), name='password_change_done'),
 ]

@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
+from .forms import AccountForm, DriverProfileForm, SponsorProfileForm
 
 from .models import DriverNotification  # NEW import
 
@@ -42,3 +43,43 @@ def notification_mark_read(request, pk: int):
         notif.save(update_fields=['is_read'])
         messages.success(request, "Notification marked as read.")
     return redirect('notifications_list')
+
+# account management view
+@login_required
+def account_management(request):
+    user = request.user
+
+    user_form = AccountForm(request.POST or None, instance=user)
+
+    driver_form = None
+    sponsor_form = None
+
+    if getattr(user, "is_driver", False):
+        driver_profile = getattr(user, "driverprofile", None)
+        if driver_profile:
+            driver_form = DriverProfileForm(request.POST or None, instance=driver_profile)
+
+    if getattr(user, "is_sponsor", False):
+        sponsor_profile = getattr(user, "sponsorprofile", None)
+        if sponsor_profile:
+            sponsor_form = SponsorProfileForm(request.POST or None, instance=sponsor_profile)
+
+    if request.method == "POST":
+        forms = [user_form]
+        if driver_form: forms.append(driver_form)
+        if sponsor_form: forms.append(sponsor_form)
+
+        if all(f.is_valid() for f in forms):
+            for f in forms:
+                f.save()
+            messages.success(request, "Your account has been updated successfully.")
+            return redirect("account_management")
+        else:
+            messages.error(request, "Please correct the errors below.")
+
+    context = {
+        "user_form": user_form,
+        "driver_form": driver_form,
+        "sponsor_form": sponsor_form,
+    }
+    return render(request, "users/account_management.html", context)
