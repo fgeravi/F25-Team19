@@ -6,6 +6,7 @@ from .models import User, SponsorProfile, DriverProfile
 from django import forms
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from .forms import LockedOutAdminAuthenticationForm
+from .models import FailedLoginAttempt
 
 admin.site.login_form = LockedOutAdminAuthenticationForm
 
@@ -79,3 +80,46 @@ class UserAdmin(BaseUserAdmin):
 admin.site.register(User, UserAdmin)
 admin.site.register(SponsorProfile)
 admin.site.register(DriverProfile)
+
+# --------------------------
+# FailedLoginAttempt Admin
+# --------------------------
+@admin.register(FailedLoginAttempt)
+class FailedLoginAttemptAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "username", "user_link", "short_ua")
+    list_filter = ("created_at",)
+    search_fields = ("username", "user_agent", "message")
+    date_hierarchy = "created_at"
+    readonly_fields = ("created_at", "username", "user", "user_agent", "message")
+    actions = ["export_csv"]
+
+    def user_link(self, obj):
+        return obj.user.email if getattr(obj.user, 'email', None) else (obj.user or "-")
+    user_link.short_description = "User"
+
+    def short_ua(self, obj):
+        if not obj.user_agent:
+            return "-"
+        return (obj.user_agent[:80] + '...') if len(obj.user_agent) > 80 else obj.user_agent
+    short_ua.short_description = "User Agent"
+
+    def has_add_permission(self, request):
+        return False
+    
+    def export_csv(self, request, queryset):
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="failed_login_attempts.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Created At", "Username", "User", "User Agent", "Message"])
+        for row in queryset.iterator():
+           writer.writerow([
+               row.created_at.isoformat(),
+               row.username,
+               row.user_id or "",
+               (row.user_agent or "").replace("\n", " ")
+               (row.message or "").replace("\n", " ")
+           ])
+        return response
+    export_csv.short_description = "Export Selected to CSV"

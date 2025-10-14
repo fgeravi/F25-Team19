@@ -190,3 +190,28 @@ def on_login_success(sender, user, request, **kwargs):
         user.failed_login_attempts = 0
         user.lockout_until = None
         user.save(update_fields=["failed_login_attempts", "lockout_until"])
+
+# Audit log of failed login attempts
+class FailedLoginAttempt(models.Model):
+    username = models.CharField(max_length=254, db_index=True, help_text="The username that was attempted.")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="The user account if the username matched an existing user.",
+    )
+    user_agent = models.TextField(null=True, blank=True)
+    message = models.TextField(null=True, blank=True, help_text="Additional info about the failure.")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["username"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"FailedLoginAttempt<{self.id}> for '{self.username}' at {self.created_at}"
