@@ -9,7 +9,7 @@ from .models import DriverNotification  # NEW import
 
 @login_required
 def home(request):
-    return render(request, 'home.html')
+    return render(request, 'users/home.html')
 
 
 def register(request):
@@ -22,7 +22,7 @@ def register(request):
             return redirect('login')
     else:
         form = UserRegisterForm()
-    return render(request, 'registration/register.html', {'form': form})
+    return render(request, 'users/registration/register.html', {'form': form})
 
 
 # --- Notifications stuff ---
@@ -31,7 +31,7 @@ def register(request):
 def notifications_list(request):
     """List the current user's notifications."""
     notifs = DriverNotification.objects.filter(driver_user=request.user)
-    return render(request, 'notifications/list.html', {'notifications': notifs})
+    return render(request, 'users/notifications/list.html', {'notifications': notifs})
 
 
 @login_required

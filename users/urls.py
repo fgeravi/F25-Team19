@@ -7,7 +7,7 @@ from .views import account_management, NonAdminLoginView
 
 urlpatterns = [
     path("login/", auth_views.LoginView.as_view(
-        template_name="registration/login.html",
+        template_name="users/registration/login.html",
         redirect_authenticated_user=True,
         authentication_form=LockedOutAuthenticationForm,
         success_url='home'
