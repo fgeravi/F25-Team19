@@ -16,6 +16,8 @@ class UserRegisterForm(UserCreationForm):
 
 # Lockout logic in authentication forms
 class LockedOutAuthenticationForm(AuthenticationForm):
+    remember_me = forms.BooleanField(required=False, initial=False)
+    
     def confirm_login_allowed(self, user):
         super().confirm_login_allowed(user)
         if (user.is_staff or user.is_superuser) and getattr(user, "lockout_until", None):

@@ -3,7 +3,6 @@ from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
 from .forms import AccountForm, DriverProfileForm, SponsorProfileForm
-from django.contrib.auth.views import LoginView as DjangoLoginView
 from .forms import LockedOutAuthenticationForm
 from .models import DriverNotification  # NEW import
 
@@ -85,14 +84,4 @@ def account_management(request):
     }
     return render(request, "users/account_management.html", context)
 
-# remember me for non-admin user login
-class NonAdminLoginView(DjangoLoginView):
-    template_name = "registration/login.html"
-    authentication_form = LockedOutAuthenticationForm
-    def form_valid(self, form):
-        response = super().form_valid(form)
-        if self.request.POST.get("remember_me"):
-            self.request.session.set_expiry(1209600)
-        else:
-            self.request.session.set_expiry(0)
-        return response
+

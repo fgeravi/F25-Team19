@@ -23,7 +23,8 @@
       {{ form.password }}
     </p>
     <p>
-      <label><input type="checkbox" name="remember_me"> Remember me</label>
+      {{ form.remember_me }}
+      <label for="{{ form.remember_me.id_for_label }}">Remember me</label>
     </p>
 
     <p>Don't have an account? <a href="{% url 'register' %}">Sign up here</a></p>
