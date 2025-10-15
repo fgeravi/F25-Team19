@@ -10,6 +10,13 @@ class LockedoutBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         user = super().authenticate(request, username, password, **kwargs)
         if user and request and hasattr(request, 'session'):
-            if hasattr(request, 'form') and hasattr(request.form, 'get_session_expiry'):
-                request.session.set_expiry(request.form.get_session_expiry())
+            # Set new session settings
+            if 'remember_me' in request.POST:
+                from django.conf import settings
+                request.session['remember_me'] = True
+                request.session.set_expiry(settings.EXTENDED_SESSION_LENGTH)
+            else:
+                request.session['remember_me'] = False
+                # For non-remember-me, set to expire when browser closes
+                request.session.set_expiry(0)  # 0 means "expire when browser closes"
         return user

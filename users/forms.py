@@ -27,9 +27,12 @@ class LockedOutAuthenticationForm(AuthenticationForm):
     
     def get_session_expiry(self):
         """Return session expiry based on remember_me field."""
+        from django.conf import settings
         if self.cleaned_data.get('remember_me'):
-            return 1209600  # 2 weeks in seconds
-        return 0  # Session expires when browser closes
+            # Use extended session length for "remember me"
+            return settings.EXTENDED_SESSION_LENGTH
+        # Use default session length (will timeout after SESSION_COOKIE_AGE)
+        return None
 
 # For admin site login        
 class LockedOutAdminAuthenticationForm(AdminAuthenticationForm):

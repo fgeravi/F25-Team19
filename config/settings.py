@@ -62,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "users.middleware.SessionTimeoutMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -82,6 +83,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+
+# Session settings
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_COOKIE_AGE = 900
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
+# Extended session length (for "remember me")
+EXTENDED_SESSION_LENGTH = 1209600
+
+# Time before session expiry to show warning
+SESSION_WARNING_TIME = 20
 
 DB_NAME = config("DB_NAME", default="Team19_DB")
 DB_USER = config("DB_USER", default="Team19")  
@@ -153,6 +165,4 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = 'home'
 
-# Session Settings
-SESSION_COOKIE_AGE = 1209600
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+

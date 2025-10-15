@@ -4,16 +4,20 @@
   <h1>Home</h1>
   {% if user.is_authenticated %}
     <p>Welcome {{ user.username }}</p>
-  {% else %}
-    <p><a href="{% url 'login' %}">Login</a></p>
-  {% endif %}
-  {% if user.is_authenticated %}
+    
+    {# Session Status Indicator #}
+    <div class="alert {% if request.session.remember_me %}alert-info{% else %}alert-secondary{% endif %} mb-3">
+      {% if request.session.remember_me %}
+        <strong>Extended Session:</strong> You're using "Remember Me" mode - your session will last longer.
+      {% else %}
+        <strong>Regular Session:</strong> Your session will expire after inactivity or when you close your browser.
+      {% endif %}
+    </div>
 
     {% if user.is_sponsor %}
         <a href="{% url 'rewards:add_points' %}" class="btn btn-primary">
             Award Points to a Driver
         </a>
-
     {% elif user.is_driver %}
         <a href="{% url 'rewards:dashboard' %}" class="btn btn-primary">
             View My Points Dashboard

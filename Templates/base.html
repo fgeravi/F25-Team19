@@ -3,8 +3,150 @@
   <head>
     <meta charset="utf-8">
     <title>{% block title %}My Site{% endblock %}</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+      #session-timeout-dialog {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border: 1px solid #ccc;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        z-index: 1000;
+      }
+      #session-timeout-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+      }
+    </style>
   </head>
   <body>
+    <style>
+      .alert { padding: 10px; margin-bottom: 10px; border-radius: 4px; }
+      .alert-success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+      .alert-warning { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
+      .alert-info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+      #message-container { 
+        position: fixed; 
+        top: 10px; 
+        right: 10px; 
+        width: 300px; 
+        z-index: 1000; 
+      }
+      .message-item {
+        margin-bottom: 10px;
+        animation: fadeOut 0.5s ease-in-out 5s forwards;
+      }
+      @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; visibility: hidden; }
+      }
+    </style>
+    
+    {% if messages %}
+    <div id="message-container">
+      {% for message in messages %}
+        {% if 'safe' in message.extra_tags %}
+          <div class="message-item alert alert-{{ message.tags }}">
+            {{ message|safe }}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+    
+    <script>
+      // Remove messages after they fade out
+      setTimeout(function() {
+        var container = document.getElementById('message-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+      }, 5500);
+    </script>
+    {% endif %}
+    
+    {% if user.is_authenticated %}
+    <div id="session-timeout-dialog">
+      <h3>Session Timeout Warning</h3>
+      <p>Your session will expire in <span id="session-countdown">60</span> seconds.</p>
+      <button onclick="extendSession()">Extend Session</button>
+      <button onclick="logout()">Logout Now</button>
+    </div>
+    <div id="session-timeout-overlay"></div>
+    <script>
+      let timeoutWarning = 14 * 60 * 1000; // Show warning 1 minute before timeout (14 minutes)
+      let timeoutNow = 15 * 60 * 1000; // Session timeout at 15 minutes
+      let warningTimer;
+      let timeoutTimer;
+      let countdownTimer;
+      let countdown = 60; // 60 seconds countdown
+
+      function startTimers() {
+        warningTimer = setTimeout(showWarning, timeoutWarning);
+        timeoutTimer = setTimeout(timeout, timeoutNow);
+      }
+
+      function resetTimers() {
+        clearTimeout(warningTimer);
+        clearTimeout(timeoutTimer);
+        clearInterval(countdownTimer);
+        startTimers();
+      }
+
+      function showWarning() {
+        $('#session-timeout-dialog, #session-timeout-overlay').show();
+        countdown = 60;
+        countdownTimer = setInterval(updateCountdown, 1000);
+      }
+
+      function updateCountdown() {
+        countdown--;
+        $('#session-countdown').text(countdown);
+        if (countdown <= 0) {
+          timeout();
+        }
+      }
+
+      function timeout() {
+        window.location.href = "{% url 'logout' %}";
+      }
+
+      function extendSession() {
+        $.ajax({
+          url: "{% url 'extend_session' %}",
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+          },
+          success: function() {
+            $('#session-timeout-dialog, #session-timeout-overlay').hide();
+            clearInterval(countdownTimer);
+            resetTimers();
+          }
+        });
+      }
+
+      function logout() {
+        window.location.href = "{% url 'logout' %}";
+      }
+
+      $(document).ready(function() {
+        startTimers();
+        $(document).on('mousemove keypress', function() {
+          resetTimers();
+        });
+      });
+    </script>
+    {% endif %}
     {% if messages %}
       <ul>
         {% for m in messages %}
