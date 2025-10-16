@@ -3,7 +3,7 @@ from django.contrib.auth import views as auth_views
 from . import views
 from .forms import LockedOutAuthenticationForm
 from .views import account_management
-from .ajax import extend_session
+from .session_views import extend_session
 
 
 urlpatterns = [
