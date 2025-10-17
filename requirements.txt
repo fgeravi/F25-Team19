@@ -1,6 +1,8 @@
-Django>=4.2
+Django==5.2.7
 gunicorn==23.0.0
-PyMySQL
-python-decouple==0.0.7
+PyMySQL==1.1.2
+python-decouple==3.8
+asgiref==3.10.0
+sqlparse==0.5.3
 certifi==2024.8.30
 packaging==25.0
