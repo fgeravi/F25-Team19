@@ -28,7 +28,11 @@ SECRET_KEY = "django-insecure-g_$d+8ut_a07f&&k2k$kzn(kmotc680@n#avq^gn_x9k-lnqxd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*')
+if ALLOWED_HOSTS == '*':
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = ALLOWED_HOSTS.split(',')
 
 # custom AUTH model
 AUTH_USER_MODEL = "users.User"
