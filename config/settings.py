@@ -168,4 +168,8 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # WhiteNoise storage
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise storage options
+# Use Manifest version only after first successful deploy
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'

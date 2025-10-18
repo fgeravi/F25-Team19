@@ -1,5 +1,7 @@
 .env
 
+.zip
+
 /staticfiles/
 
 __pycache__/
