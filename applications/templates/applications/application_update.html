@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<h2>Update Application for {{ application.driver.username }}</h2>
+
+<p><strong>Driver Message:</strong> {{ application.message|default:"No message provided." }}</p>
+
+<form method="POST">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Save</button>
+</form>
+
+<a href="{% url 'applications_list' %}">Back to Applications</a>
+{% endblock %}
