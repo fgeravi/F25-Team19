@@ -5,6 +5,11 @@ from django.contrib.auth.decorators import login_required
 from .forms import AccountForm, DriverProfileForm, SponsorProfileForm
 from .forms import LockedOutAuthenticationForm
 from .models import DriverNotification  # NEW import
+# Password Change addition
+from django.contrib.auth.views import PasswordChangeView
+from django.urls import reverse_lazy
+from django.utils import timezone
+from audit.models import PasswordChange
 
 
 @login_required
@@ -84,4 +89,24 @@ def account_management(request):
     }
     return render(request, "users/account_management.html", context)
 
+# Password Change Audit
+class AuditedPasswordChangeView(PasswordChangeView):
+    template_name = 'users/password_change.html'
+    success_url = reverse_lazy('password_change_done')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+
+        # Get request info
+        user = self.request.user
+        ip = self.request.META.get('REMOTE_ADDR')
+        user_agent = self.request.META.get('HTTP_USER_AGENT')
+
+        # Log the event
+        PasswordChange.objects.create(
+            username=user.username,
+            ip_address=ip,
+            user_agent=user_agent,
+            timestamp=timezone.now()
+        )
+        return response

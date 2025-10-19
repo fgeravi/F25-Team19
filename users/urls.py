@@ -4,6 +4,7 @@ from . import views
 from .forms import LockedOutAuthenticationForm
 from .views import account_management
 from .session_views import extend_session
+from .views import AuditedPasswordChangeView
 
 
 urlpatterns = [
@@ -24,7 +25,7 @@ urlpatterns = [
     # --- Account Management --- 
     path("account/", account_management, name="account_management"),
     # Password change views
-    path('password-change/', auth_views.PasswordChangeView.as_view(template_name='users/password_change.html'), name='password_change'),
+    path('password-change/', AuditedPasswordChangeView.as_view(), name='password_change'),
     path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='users/password_change_done.html'), name='password_change_done'),
     
     # --- Session Management ---
