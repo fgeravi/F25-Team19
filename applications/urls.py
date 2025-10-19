@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     # Driver applies to an organization
-    path("apply/<int:org_id>/", views.apply_to_organization, name="apply_to_organization"),
+    path("apply/", views.apply_to_organization, name="apply_to_organization"),
 
     # Sponsor views applications for their org
     path("applications/", views.sponsor_view_applications, name="sponsor_applications"),
