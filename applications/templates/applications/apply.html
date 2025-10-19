@@ -13,7 +13,7 @@
 
 <form method="POST">
     {% csrf_token %}
-    {{ form.as_p }}
+    {{ form.as_p }} {# This will render both organization dropdown and message field #}
     <button type="submit">Submit Application</button>
 </form>
 

@@ -21,7 +21,7 @@
             <td>{{ app.driver.driverprofile.license_number|default:"N/A" }}</td>
             <td>{{ app.driver.driverprofile.vehicle_info|default:"N/A" }}</td>
             <td>{{ app.status|capfirst }}</td>
-            <td>{{ app.submitted_at }}</td>
+            <td>{{ app.created_at }}</td>
             <td>
                 <a href="{% url 'application_update' app.id %}">Update</a>
             </td>
