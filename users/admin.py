@@ -4,6 +4,8 @@ from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from .forms import LockedOutAdminAuthenticationForm
 from .models import User, SponsorProfile, DriverProfile, FailedLoginAttempt
 from .config import LockoutConfig
+from audit.models import PasswordChange # import for password change audit
+
 
 # Set custom login form for admin
 admin.site.login_form = LockedOutAdminAuthenticationForm
@@ -160,3 +162,28 @@ class FailedLoginAttemptAdmin(admin.ModelAdmin):
 admin.site.register(User, UserAdmin)
 admin.site.register(SponsorProfile)
 admin.site.register(DriverProfile)
+
+
+# --------------------------
+# Register PasswordChange model
+# --------------------------
+@admin.register(PasswordChange)
+class PasswordChangeAdmin(admin.ModelAdmin):
+    list_display = ("timestamp", "username", "user_link", "short_ua")
+    list_filter = ("timestamp",)
+    search_fields = ("username", "user_agent")
+    date_hierarchy = "timestamp"
+    readonly_fields = ("timestamp", "username", "ip_address", "user_agent")
+
+    def user_link(self, obj):
+        return obj.username
+    user_link.short_description = "User"
+
+    def short_ua(self, obj):
+        if not obj.user_agent:
+            return "-"
+        return (obj.user_agent[:80] + '...') if len(obj.user_agent) > 80 else obj.user_agent
+    short_ua.short_description = "User Agent"
+
+    def has_add_permission(self, request):
+        return False  # Only record via code, not manually

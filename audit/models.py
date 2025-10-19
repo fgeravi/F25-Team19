@@ -1,5 +1,6 @@
 from django.db import models
 
+
 # audit model for login attempts
 class LoginAttempt(models.Model):
     username = models.CharField(max_length=150)
