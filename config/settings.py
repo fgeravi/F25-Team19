@@ -55,7 +55,9 @@ INSTALLED_APPS = [
     "about",
     "organizations",
     "rewards",
-    "audit"
+    "audit",
+    "applications",
+    "catalogue"
 ]
 
 MIDDLEWARE = [
