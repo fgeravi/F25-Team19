@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Driver Point Tracking{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h1>Driver Point Tracking</h1>
+  <hr>
+
+  <form method="get" class="row g-3 mb-3">
+    <div class="col-md-3">
+      <label class="form-label">Start</label>
+      <input type="date" name="start" class="form-control" value="{{ start|date:'Y-m-d' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">End</label>
+      <input type="date" name="end" class="form-control" value="{{ end|date:'Y-m-d' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Driver</label>
+      <select name="driver" class="form-select">
+        <option value="">All Drivers</option>
+        {% for d in drivers %}
+          <option value="{{ d.user.id }}" {% if driver_id == d.user.id|stringformat:"s" %}selected{% endif %}>
+            {{ d.user.username }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button type="submit" class="btn btn-primary w-100">Filter</button>
+    </div>
+  </form>
+
+  <div class="mb-3">
+    <a class="btn btn-outline-secondary"
+       href="{% url 'rewards:points_report_csv' %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}{% if driver_id %}&driver={{ driver_id }}{% endif %}">
+      Download CSV
+    </a>
+  </div>
+
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Driver</th>
+        <th>Change</th>
+        <th>Date</th>
+        <th>Changed By</th>
+        <th>Reason</th>
+        <th>New Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.driver.username }}</td>
+          <td>
+            {% if r.point_change_amt > 0 %}
+              <span class="text-success">+{{ r.point_change_amt }}</span>
+            {% else %}
+              <span class="text-danger">{{ r.point_change_amt }}</span>
+            {% endif %}
+          </td>
+          <td>{{ r.date|date:"N j, Y, P" }}</td>
+          <td>{% if r.sponsor %}{{ r.sponsor.username }}{% else %}-{% endif %}</td>
+          <td>{{ r.reason|default:"No reason provided" }}</td>
+          <td>{{ r.new_point_balance }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center">No results for the selected filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
