@@ -6,7 +6,7 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from .models import award_points_to_driver
 from django.utils import timezone
-from datetime import timedelta 
+from datetime import timedelta
 from django.db.models import Sum
 import csv
 from django.http import HttpResponse
@@ -30,19 +30,17 @@ def point_dashboard(request):
             point_change_amt__gt=0
         ).aggregate(total=Sum('point_change_amt'))['total'] or 0
 
-
     except DriverProfile.DoesNotExist:
         current_balance = 0
         transactions = []
-        
+        weekly_earnings = 0
+
     context = {
         'current_balance': current_balance,
         'transactions': transactions,
         'weekly_earnings': weekly_earnings,
     }
-    
     return render(request, 'rewards/dashboard.html', context)
-
 
 
 @login_required
@@ -55,8 +53,13 @@ def add_points_view(request):
         try:
             driver_id = request.POST.get('driver')
             points = int(request.POST.get('points'))
-            reason = request.POST.get('reason')
-            
+            reason = (request.POST.get('reason') or "").strip()
+
+            # --- Story 480: reason is required ---
+            if not reason:
+                messages.error(request, "Reason is required when adding or deducting points.")
+                return redirect('rewards:add_points')
+
             sponsor_user = request.user
             driver_user = User.objects.get(pk=driver_id, is_driver=True)
 
@@ -78,20 +81,17 @@ def add_points_view(request):
             messages.error(request, "Please enter a valid number for points.")
         except Exception as e:
             messages.error(request, f"An error occurred: {e}")
-            
+
         return redirect('rewards:add_points')
 
-    drivers = User.objects.filter(is_driver=True, is_active=True)
+    drivers = User.objects.filter(is_driver=True, is_active=True).order_by("username")
     context = {
         'drivers': drivers
     }
     return render(request, 'rewards/add_points.html', context)
-# Create your views here.
-
 
 
 # Sponsor Driver Point Tracking (HTML + CSV)
-
 
 def _get_sponsor_org(user):
     """Return the sponsor's organization or None."""
@@ -100,6 +100,7 @@ def _get_sponsor_org(user):
         return sp.organization
     except SponsorProfile.DoesNotExist:
         return None
+
 
 @login_required
 def points_tracking_report(request):
@@ -173,7 +174,7 @@ def points_tracking_csv(request):
 
     # Build CSV
     resp = HttpResponse(content_type="text/csv")
-    resp["Content-Disposition"] = 'attachment; filename="driver_point_tracking.csv"'
+    resp["Content-Disposition"] = 'attachment; filename=\"driver_point_tracking.csv\"'
     w = csv.writer(resp)
     w.writerow(["Driver", "Delta", "Date", "Changed By", "Reason", "New Balance"])
 

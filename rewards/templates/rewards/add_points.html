@@ -26,16 +26,19 @@
         </div>
 
         <div class="form-group mb-3">
-            <label for="points">Points to Award</label>
+            <label for="points">Points (positive to add, negative to deduct)</label>
             <input type="number" name="points" id="points" class="form-control" required>
         </div>
 
-        <div class="form-group mb-3">
-            <label for="reason">Reason (Optional)</label>
-            <input type="text" name="reason" id="reason" class="form-control">
+        <div class="form-group mb-2">
+            <label for="reason">Reason <span class="text-danger">*</span></label>
+            <input type="text" name="reason" id="reason" class="form-control" maxlength="255" required>
         </div>
+        <small class="text-muted d-block mb-3">
+            This message will be saved with the point change and shown to the driver.
+        </small>
 
-        <button type="submit" class="btn btn-primary">Award Points</button>
+        <button type="submit" class="btn btn-primary">Submit</button>
     </form>
 </div>
 {% endblock %}
