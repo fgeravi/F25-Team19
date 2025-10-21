@@ -19,8 +19,12 @@ from django.contrib import admin
 from django.urls import path, include
 from about.views import about_page
 from users.forms import LockedOutAdminAuthenticationForm
+from django.conf import settings
 
 admin.site.login_form = LockedOutAdminAuthenticationForm
+admin.site.site_header = "F25 Team 19 Admin (v{})".format(settings.APP_VERSION)
+admin.site.site_title = "Dashboard - v{}".format(settings.APP_VERSION)
+admin.site.site_title = "F25 Team 19 Admin"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
