@@ -31,5 +31,5 @@ urlpatterns = [
     path("", include("users.urls")),
     path("about/", about_page, name="about"), 
     path('rewards/', include('rewards.urls')),
-    path("apply/", include("applications.urls")),
+    path("", include("applications.urls")),
 ]

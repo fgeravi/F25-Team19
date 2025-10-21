@@ -249,3 +249,43 @@ class DriverChangeAudit(models.Model):
 
     class Meta:
         ordering = ['-date']
+
+
+# Password Audit Events
+
+class PasswordEvent(models.Model):
+    EVENT_CHANGE = "password_change"
+    EVENT_RESET_REQUESTED = "password_reset_requested"
+    EVENT_RESET_SUCCESS = "password_reset_success"
+    EVENT_RESET_FAILED = "password_reset_failed"
+
+    EVENT_CHOICES = [
+        (EVENT_CHANGE, "Password changed (authenticated)"),
+        (EVENT_RESET_REQUESTED, "Password reset requested"),
+        (EVENT_RESET_SUCCESS, "Password reset successful"),
+        (EVENT_RESET_FAILED, "Password reset failed"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="password_events",
+    )
+    username = models.CharField(max_length=254, db_index=True, blank=True)
+    event_type = models.CharField(max_length=32, choices=EVENT_CHOICES)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["event_type"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        who = self.user.username if self.user else (self.username or "unknown")
+        return f"{self.event_type} for {who} at {self.created_at}"

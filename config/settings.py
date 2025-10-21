@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "audit.middleware.NewLocationBannerMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "users.middleware.SessionTimeoutMiddleware",
 ]
@@ -180,3 +181,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # WhiteNoise storage options
 # Use Manifest version only after first successful deploy
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "no-reply@example.com"
