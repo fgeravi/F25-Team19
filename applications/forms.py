@@ -16,7 +16,7 @@ class ApplicationForm(forms.ModelForm):
 
     class Meta:
         model = DriverApplication
-        fields = ["organization", "notes"]
+        fields = ["organization", "message"]
         widgets = {
             "message": forms.Textarea(attrs={"rows": 4}),
         }
