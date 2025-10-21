@@ -24,6 +24,8 @@ urlpatterns = [
 
     # --- Account Management --- 
     path("account/", account_management, name="account_management"),
+    path('manage-drivers/', views.manage_drivers_view, name='manage_drivers'),
+    path('manage-drivers/edit/<int:driver_id>/', views.edit_driver_view, name='edit_driver'),
     # Password change views
     path('password-change/', AuditedPasswordChangeView.as_view(), name='password_change'),
     path('password-change/done/', auth_views.PasswordChangeDoneView.as_view(template_name='users/password_change_done.html'), name='password_change_done'),

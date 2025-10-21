@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Edit Driver: {{ driver_user.username }}</h1>
+    <hr>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        {{ form.as_p }}
+
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{% url 'manage_drivers' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

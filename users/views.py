@@ -10,6 +10,8 @@ from django.contrib.auth.views import PasswordChangeView
 from django.urls import reverse_lazy
 from django.utils import timezone
 from audit.models import PasswordChange
+from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit
+from .forms import DriverEditForm
 
 
 @login_required
@@ -110,3 +112,61 @@ class AuditedPasswordChangeView(PasswordChangeView):
             timestamp=timezone.now()
         )
         return response
+
+@login_required
+def manage_drivers_view(request):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to view this page.")
+        return redirect('home')
+
+    try:
+        sponsor_profile = request.user.sponsorprofile
+        organization = sponsor_profile.organization
+        
+        drivers = User.objects.filter(
+            is_driver=True,
+            driverprofile__organization=organization
+        ).order_by('username')
+
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+
+    context = {
+        'drivers': drivers
+    }
+    return render(request, 'users/manage_drivers.html', context)
+
+
+@login_required
+def edit_driver_view(request, driver_id):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    driver_user = get_object_or_404(User, id=driver_id, is_driver=True)
+
+    if request.method == 'POST':
+        form = DriverEditForm(request.POST, instance=driver_user)
+        if form.is_valid():
+            # Story 461: Log changes before saving
+            for field in form.changed_data:
+                DriverChangeAudit.objects.create(
+                    sponsor=request.user,
+                    driver=driver_user,
+                    field_name=field,
+                    old_value=form.initial.get(field),
+                    new_value=form.cleaned_data.get(field)
+                )
+            
+            form.save()
+            messages.success(request, f"Successfully updated profile for {driver_user.username}.")
+            return redirect('manage_drivers')
+    else:
+        form = DriverEditForm(instance=driver_user)
+
+    context = {
+        'form': form,
+        'driver_user': driver_user
+    }
+    return render(request, 'users/edit_driver.html', context)

@@ -225,3 +225,27 @@ class FailedLoginAttempt(models.Model):
 
     def __str__(self):
         return f"FailedLoginAttempt<{self.id}> for '{self.username}' at {self.created_at}"
+
+class DriverChangeAudit(models.Model):
+    sponsor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='driver_changes_made'
+    )
+    driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='profile_changes'
+    )
+    date = models.DateTimeField(auto_now_add=True)
+    field_name = models.CharField(max_length=100)
+    old_value = models.TextField(blank=True, null=True)
+    new_value = models.TextField(blank=True, null=True)
+    reason = models.CharField(max_length=255, blank=True, help_text="Optional reason for the change.")
+
+    def __str__(self):
+        return f"Change for {self.driver.username} by {self.sponsor.username} on {self.date.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        ordering = ['-date']

@@ -15,9 +15,17 @@
     </div>
 
     {% if user.is_sponsor %}
+      <div>
         <a href="{% url 'rewards:add_points' %}" class="btn btn-primary">
             Award Points to a Driver
         </a>
+      </div>
+
+      <div>  
+        <a href="{% url 'manage_drivers' %}" class="btn btn-secondary">
+            Manage Driver Accounts
+        </a>
+      </div>
     {% elif user.is_driver %}
         <a href="{% url 'rewards:dashboard' %}" class="btn btn-primary">
             View My Points Dashboard

@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from .forms import LockedOutAdminAuthenticationForm
-from .models import User, SponsorProfile, DriverProfile, FailedLoginAttempt
+from .models import User, SponsorProfile, DriverProfile, FailedLoginAttempt, DriverChangeAudit
 from .config import LockoutConfig
 from audit.models import PasswordChange # import for password change audit
 
@@ -162,6 +162,22 @@ class FailedLoginAttemptAdmin(admin.ModelAdmin):
 admin.site.register(User, UserAdmin)
 admin.site.register(SponsorProfile)
 admin.site.register(DriverProfile)
+
+
+@admin.register(DriverChangeAudit)
+class DriverChangeAuditAdmin(admin.ModelAdmin):
+    list_display = ('date', 'sponsor', 'driver', 'field_name', 'old_value', 'new_value')
+    list_filter = ('date', 'sponsor', 'driver')
+    search_fields = ('sponsor__username', 'driver__username')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 # --------------------------

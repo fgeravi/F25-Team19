@@ -106,3 +106,11 @@ class SponsorProfileForm(forms.ModelForm):
             "company_name": forms.TextInput(attrs={"class": "form-control"}),
         }
 
+
+class DriverEditForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email', 'is_active']
+        help_texts = {
+            'is_active': 'Uncheck this to deactivate the driver. They will not be able to log in.'
+        }
