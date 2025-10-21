@@ -23,9 +23,26 @@ def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
         if form.is_valid():
-            form.save()
-            username = form.cleaned_data.get('username')
-            messages.success(request, f'Account created for {username}!')
+            user = form.save(commit=False)
+            
+            # Set role based on selection
+            account_type = form.cleaned_data['account_type']
+            if account_type == 'driver':
+                user.is_driver = True
+            elif account_type == 'sponsor':
+                user.is_sponsor = True
+
+            user.save()  # save the user
+
+            # Optionally, create the profile automatically
+            if user.is_driver:
+                from .models import DriverProfile
+                DriverProfile.objects.create(user=user)
+            elif user.is_sponsor:
+                from .models import SponsorProfile
+                SponsorProfile.objects.create(user=user)
+
+            messages.success(request, f'Account created for {user.username}!')
             return redirect('login')
     else:
         form = UserRegisterForm()

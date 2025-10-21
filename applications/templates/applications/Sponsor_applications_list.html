@@ -23,7 +23,7 @@
             <td>{{ app.status|capfirst }}</td>
             <td>{{ app.created_at }}</td>
             <td>
-                <a href="{% url 'application_update' app.id %}">Update</a>
+                <a href="{% url 'update_application_status' app.id %}">Update</a>
             </td>
         </tr>
         {% empty %}

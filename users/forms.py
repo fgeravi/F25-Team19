@@ -9,10 +9,20 @@ from .models import User, DriverProfile, SponsorProfile
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField()
+    ACCOUNT_CHOICES = [
+        ('driver', 'Driver'),
+        ('sponsor', 'Sponsor')
+    ]
+    account_type = forms.ChoiceField(
+        choices=ACCOUNT_CHOICES,
+        widget=forms.RadioSelect,
+        required=True,
+        label="Account Type"
+    )
 
     class Meta:
         model = User
-        fields = ['username', 'email']
+        fields = ['username', 'email', 'account_type', 'password1', 'password2']
 
 # Lockout logic in authentication forms
 class LockedOutAuthenticationForm(AuthenticationForm):

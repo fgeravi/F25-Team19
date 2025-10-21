@@ -5,6 +5,23 @@ from .models import DriverApplication
 from .forms import ApplicationForm, ApplicationUpdateForm
 from users.models import is_driver, is_sponsor
 
+# ---------------------------
+# Driver list of applications
+# ---------------------------
+@login_required
+def driver_applications_list(request):
+    if not is_driver(request.user):
+        messages.error(request, "Only drivers can view their applications.")
+        return redirect("home")
+
+    applications = DriverApplication.objects.filter(driver=request.user)
+    return render(
+        request,
+        "applications/driver_application_list.html",
+        {"applications": applications}
+    )
+
+
 # -------------------------
 # Driver applies to an org
 # -------------------------
@@ -23,7 +40,7 @@ def apply_to_organization(request):
             existing = DriverApplication.objects.filter(driver=request.user, organization=org).first()
             if existing:
                 messages.info(request, "You have already applied to this organization.")
-                return redirect("home")
+                return redirect("driver_applications_list")
 
             # Create application
             DriverApplication.objects.create(
@@ -32,11 +49,11 @@ def apply_to_organization(request):
                 message=form.cleaned_data.get("message", "")
             )
             messages.success(request, f"Application sent to {org.name}.")
-            return redirect("home")
+            return redirect("driver_applications_list")
     else:
         form = ApplicationForm()
 
-    return render(request, "applications/apply_to_organization.html", {"form": form})
+    return render(request, "applications/apply.html", {"form": form})
 
 
 # -------------------------
@@ -54,9 +71,9 @@ def sponsor_view_applications(request):
         return redirect("home")
 
     applications = org.applications.all()  # All applications for this sponsor's org
-    return render(request, "applications/application_list.html", {
+    return render(request, "applications/sponsor_application_list.html", {
         "applications": applications,
-        "org": org  # <-- pass org so template can access org.name
+        "org": org  # so template can access org.name
     })
 
 
