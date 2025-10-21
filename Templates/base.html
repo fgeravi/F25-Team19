@@ -157,6 +157,11 @@
     {% if user.is_authenticated %}
       <p>
         Hi {{ user.username }} |
+        <a href="{% url 'home' %}">Home</a> |
+        {% if user.is_driver %}
+          <a href="{% url 'catalogue:catalog_list' %}">Catalog</a> |
+          <a href="{% url 'rewards:dashboard' %}">Points</a> |
+        {% endif %}
         <form action="{% url 'logout' %}" method="post" style="display:inline;">
           {% csrf_token %}
           <button type="submit" class="link-button">Logout</button>

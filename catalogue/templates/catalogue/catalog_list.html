@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Product Catalog{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Product Catalog</h1>
+    <p class="text-muted">Browse items from {{ organization.name }}</p>
+    <hr>
+
+    <!-- Sorting Options -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="btn-group" role="group" aria-label="Sort options">
+                <a href="?sort_by=newest" class="btn btn-{% if sort_by == 'newest' %}primary{% else %}outline-primary{% endif %}">
+                    <i class="bi bi-clock-history"></i> Newest
+                </a>
+                <a href="?sort_by=popular" class="btn btn-{% if sort_by == 'popular' %}primary{% else %}outline-primary{% endif %}">
+                    <i class="bi bi-fire"></i> Most Popular
+                </a>
+            </div>
+            <span class="ms-3 text-muted">Sorted by: <strong>{{ sort_display }}</strong></span>
+        </div>
+        <div class="col-md-6 text-end">
+            <span class="badge bg-info">{{ page_obj.paginator.count }} items available</span>
+        </div>
+    </div>
+
+    <!-- Recently Viewed Items Section -->
+    {% if recently_viewed %}
+    <div class="card mb-4 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-eye"></i> Recently Viewed Items</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for view in recently_viewed %}
+                <div class="col-md-2 col-sm-4 col-6 mb-3">
+                    <a href="{% url 'catalogue:catalog_item_detail' view.catalogue_item.id %}" class="text-decoration-none">
+                        <div class="card h-100 shadow-sm">
+                            {% if view.catalogue_item.image_url %}
+                                <img src="{{ view.catalogue_item.image_url }}" class="card-img-top" alt="{{ view.catalogue_item.product_name }}" style="height: 120px; object-fit: cover;">
+                            {% else %}
+                                <div class="card-img-top bg-secondary d-flex align-items-center justify-content-center" style="height: 120px;">
+                                    <i class="bi bi-image text-white" style="font-size: 3rem;"></i>
+                                </div>
+                            {% endif %}
+                            <div class="card-body p-2">
+                                <p class="card-text small text-truncate mb-0" title="{{ view.catalogue_item.product_name }}">
+                                    {{ view.catalogue_item.product_name }}
+                                </p>
+                                {% if view.catalogue_item.price %}
+                                <p class="text-primary fw-bold small mb-0">{{ view.catalogue_item.price }} pts</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Catalog Items Grid -->
+    {% if page_obj %}
+    <div class="row">
+        {% for item in page_obj %}
+        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                {% if item.image_url %}
+                    <img src="{{ item.image_url }}" class="card-img-top" alt="{{ item.product_name }}" style="height: 200px; object-fit: cover;">
+                {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                        <i class="bi bi-image text-muted" style="font-size: 4rem;"></i>
+                    </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">{{ item.product_name }}</h5>
+                    {% if item.price %}
+                    <p class="text-primary fw-bold fs-5">{{ item.price }} points</p>
+                    {% endif %}
+                    <div class="mt-auto">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-eye"></i> {{ item.view_count }} views
+                            </small>
+                            <small class="text-muted">
+                                {{ item.created_at|date:"M d, Y" }}
+                            </small>
+                        </div>
+                        <a href="{% url 'catalogue:catalog_item_detail' item.id %}" class="btn btn-primary w-100">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?sort_by={{ sort_by }}&page=1" aria-label="First">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?sort_by={{ sort_by }}&page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                    <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?sort_by={{ sort_by }}&page={{ num }}">{{ num }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?sort_by={{ sort_by }}&page={{ page_obj.next_page_number }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?sort_by={{ sort_by }}&page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">No items available</h4>
+        <p>There are currently no items in the catalog for your organization.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
