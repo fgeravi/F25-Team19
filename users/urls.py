@@ -5,6 +5,8 @@ from .forms import LockedOutAuthenticationForm
 from .views import account_management
 from .session_views import extend_session
 from .views import AuditedPasswordChangeView
+from .reset_views import PasswordResetViewAudit, PasswordResetConfirmViewAudit
+
 
 
 urlpatterns = [
@@ -32,4 +34,17 @@ urlpatterns = [
     
     # --- Session Management ---
     path('extend-session/', extend_session, name='extend_session'),
+]
+
+
+# Password reset (email to token)
+urlpatterns += [
+    path("password-reset/", PasswordResetViewAudit.as_view(), name="password_reset"),
+    path("password-reset/done/", auth_views.PasswordResetDoneView.as_view(
+        template_name="users/registration/password_reset_done.html"
+    ), name="password_reset_done"),
+    path("reset/<uidb64>/<token>/", PasswordResetConfirmViewAudit.as_view(), name="password_reset_confirm"),
+    path("reset/done/", auth_views.PasswordResetCompleteView.as_view(
+        template_name="users/registration/password_reset_complete.html"
+    ), name="password_reset_complete"),
 ]
