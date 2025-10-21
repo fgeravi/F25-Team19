@@ -9,7 +9,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum
 import csv
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
 
 
@@ -184,3 +184,14 @@ def points_tracking_csv(request):
         w.writerow([driver_name, r.point_change_amt, r.date, sponsor_name, r.reason, r.new_point_balance])
 
     return resp
+
+
+def get_driver_points(request, driver_id):
+    try:
+        driver_profile = DriverProfile.objects.get(user__id=driver_id)
+        points = driver_profile.current_points
+        return JsonResponse({'status': 'success', 'points': points})
+    except DriverProfile.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Driver not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
