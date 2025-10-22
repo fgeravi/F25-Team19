@@ -2,6 +2,8 @@ from django.contrib.auth.signals import user_login_failed
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from .models import FailedLoginAttempt
+from django.utils import timezone
+from django.db.models.signals import pre_save
 
 User = get_user_model()
 
@@ -23,3 +25,14 @@ def log_failed_login(sender,credentials, request, **kwargs):
         message=getattr(request, "_authentication_failure_message", None),
     )
     
+@receiver(pre_save, sender=User)
+def update_password_changed_at(sender, instance, **kwargs):
+    if instance.pk:
+        return
+    try:
+        old = User.objects.get(pk=instance.pk)
+    except User.DoesNotExist:
+        return
+    
+    if old.password != instance.password:
+        instance.password_changed_at = timezone.now()

@@ -3,6 +3,9 @@ from django.shortcuts import redirect
 from django.contrib import messages
 from django.conf import settings
 from django.urls import reverse
+from datetime import timedelta
+from django.urls import reverse
+
 
 class SessionTimeoutMiddleware:
     def __init__(self, get_response):
@@ -61,3 +64,43 @@ class SessionTimeoutMiddleware:
 
         response = self.get_response(request)
         return response
+    
+def _is_path_allowed(path: str) -> bool:
+    allow = getattr(settings, "PASSWORD_GRACE_ALLOWLIST", [])
+    return any(path.startswith(p) for p in allow)
+
+class EnforcePasswordRotationMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = getattr(request, 'user', None)
+        path = request.path
+
+        if (
+            user 
+            and user.is_authenticated
+            and (user.is_staff or user.is_superuser)  # Only enforce for admin users
+            and not _is_path_allowed(path)
+        ):
+            max_age_days = getattr(settings, "PASSWORD_MAX_AGE_DAYS", 90)
+            cutoff = timezone.now() - timedelta(days=max_age_days)
+
+            expired = (
+                not user.password_changed_at 
+                or user.password_changed_at < cutoff
+            )
+
+            if expired:
+                try: 
+                    change_url = reverse('password_change')
+                except Exception:
+                    change_url = getattr(settings, "PASSWORD_CHANGE_URL", "/accounts/password/change/")
+
+                if path != change_url:
+                    messages.warning(
+                        request,
+                        f"Your password has expired (>{max_age_days} days). Please change your password to continue."
+                    )
+                    return redirect(change_url)
+        response = self.get_response(request)

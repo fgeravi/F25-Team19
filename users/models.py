@@ -9,6 +9,8 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from organizations.models import Organization
 from .config import LockoutConfig
+from django.contrib.auth.models import AbstractUser
+
 
 
 # ----------------------
@@ -20,6 +22,7 @@ class User(AbstractUser):
 
     failed_login_attempts = models.PositiveIntegerField(default=0)
     lockout_until = models.DateTimeField(null=True, blank=True)
+    password_changed_at = models.DateTimeField(null=True, blank=True)
 
     def is_locked_out(self) -> bool:
         return bool(self.lockout_until and self.lockout_until > timezone.now())

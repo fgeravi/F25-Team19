@@ -20,6 +20,7 @@ from django.urls import path, include
 from about.views import about_page
 from users.forms import LockedOutAdminAuthenticationForm
 from django.conf import settings
+from django.contrib.auth import views as auth_views
 
 admin.site.login_form = LockedOutAdminAuthenticationForm
 admin.site.site_header = "F25 Team 19 Admin (v{})".format(settings.APP_VERSION)
@@ -34,4 +35,6 @@ urlpatterns = [
     path("apply/", include("applications.urls")),
     path('catalog/', include('catalogue.urls')),
     path('audit/', include('audit.urls')),
+    path('accounts/password/change/', auth_views.PasswordChangeView.as_view(), name='password_change'),
+    path('accounts/password/change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),       
 ]

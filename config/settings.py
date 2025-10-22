@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.EnforcePasswordRotationMiddleware",
     "audit.middleware.NewLocationBannerMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "users.middleware.SessionTimeoutMiddleware",
@@ -182,5 +183,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Use Manifest version only after first successful deploy
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-DEFAULT_FROM_EMAIL = "no-reply@example.com"
+PASSWORD_MAX_AGE_DAYS = 30 
+
+PASSWORD_GRACE_ALLOWLIST = [
+    "/admin/logout/",
+    "/accounts/login/",
+    "/accounts/logout/",
+    "/accounts/password_change/",
+    "/accounts/password_change/done/",
+    "/static/"
+]

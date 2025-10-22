@@ -1,8 +1,10 @@
+from __future__ import annotations
 from django.contrib.auth import get_user_model, views as auth_views
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters
 from django.http import HttpRequest
+
 
 from .models import PasswordEvent
 
