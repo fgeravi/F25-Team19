@@ -2,10 +2,15 @@ from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from .forms import LockedOutAdminAuthenticationForm
-from .models import User, SponsorProfile, DriverProfile, FailedLoginAttempt, DriverChangeAudit
+from .models import (
+    User,
+    SponsorProfile,
+    DriverProfile,
+    FailedLoginAttempt,
+    DriverChangeAudit,
+)
 from .config import LockoutConfig
-from audit.models import PasswordChange # import for password change audit
-
+from audit.models import PasswordChange
 
 # Set custom login form for admin
 admin.site.login_form = LockedOutAdminAuthenticationForm
@@ -23,6 +28,29 @@ class CustomUserChangeForm(UserChangeForm):
     class Meta:
         model = User
         fields = ("username", "email", "is_sponsor", "is_driver")
+
+
+# --------------------------
+# Inline Profiles
+# --------------------------
+class SponsorProfileInline(admin.StackedInline):
+    model = SponsorProfile
+    can_delete = False
+    fk_name = "user"
+    verbose_name = "Sponsor Profile"
+    verbose_name_plural = "Sponsor Profile"
+    autocomplete_fields = ("organization",)
+    extra = 0
+
+
+class DriverProfileInline(admin.StackedInline):
+    model = DriverProfile
+    can_delete = False
+    fk_name = "user"
+    verbose_name = "Driver Profile"
+    verbose_name_plural = "Driver Profile"
+    autocomplete_fields = ("organization",)
+    extra = 0
 
 
 # --------------------------
@@ -47,21 +75,57 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {"fields": ("username", "email", "password")}),
-        ("Permissions", {"fields": ("is_sponsor", "is_driver", "is_staff", "is_superuser", "groups", "user_permissions")}),
+        (
+            "Permissions",
+            {
+                "fields": (
+                    "is_sponsor",
+                    "is_driver",
+                    "is_staff",
+                    "is_superuser",
+                    "groups",
+                    "user_permissions",
+                )
+            },
+        ),
         ("Important dates", {"fields": ("last_login", "date_joined")}),
     )
 
     add_fieldsets = (
-        (None, {
-            "classes": ("wide",),
-            "fields": ("username", "email", "password1", "password2", "is_sponsor", "is_driver", "is_staff", "is_superuser"),
-        }),
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": (
+                    "username",
+                    "email",
+                    "password1",
+                    "password2",
+                    "is_sponsor",
+                    "is_driver",
+                    "is_staff",
+                    "is_superuser",
+                ),
+            },
+        ),
     )
 
     search_fields = ("username", "email")
     ordering = ("username",)
     filter_horizontal = ("groups", "user_permissions")
     actions = ["hide_users", "unlock_users"]
+
+    # --------------------------
+    # Inline logic
+    # --------------------------
+    def get_inline_instances(self, request, obj=None):
+        inlines = []
+        if obj:
+            if obj.is_sponsor:
+                inlines.append(SponsorProfileInline(self.model, self.admin_site))
+            if obj.is_driver:
+                inlines.append(DriverProfileInline(self.model, self.admin_site))
+        return inlines
 
     # --------------------------
     # Custom columns
@@ -75,11 +139,13 @@ class UserAdmin(BaseUserAdmin):
     # Soft delete
     # --------------------------
     def has_delete_permission(self, request, obj=None):
-        return False  # No one can delete users
+        return False
 
     def hide_users(self, request, queryset):
         updated = queryset.update(is_active=False)
-        self.message_user(request, f"{updated} user(s) were successfully hidden.", messages.SUCCESS)
+        self.message_user(
+            request, f"{updated} user(s) were successfully hidden.", messages.SUCCESS
+        )
     hide_users.short_description = "Hide selected users (deactivate)"
 
     # --------------------------
@@ -87,7 +153,9 @@ class UserAdmin(BaseUserAdmin):
     # --------------------------
     def unlock_users(self, request, queryset):
         updated = queryset.update(lockout_until=None, failed_login_attempts=0)
-        self.message_user(request, f"{updated} user(s) were successfully unlocked.", messages.SUCCESS)
+        self.message_user(
+            request, f"{updated} user(s) were successfully unlocked.", messages.SUCCESS
+        )
     unlock_users.short_description = "Unlock selected users"
 
     # --------------------------
@@ -107,7 +175,6 @@ class LockoutConfigAdmin(admin.ModelAdmin):
     readonly_fields = ("updated_at",)
 
     def has_add_permission(self, request):
-        # Only allow one global config
         return not LockoutConfig.objects.exists()
 
 
@@ -124,13 +191,13 @@ class FailedLoginAttemptAdmin(admin.ModelAdmin):
     actions = ["export_csv"]
 
     def user_link(self, obj):
-        return obj.user.email if getattr(obj.user, 'email', None) else (obj.user or "-")
+        return obj.user.email if getattr(obj.user, "email", None) else (obj.user or "-")
     user_link.short_description = "User"
 
     def short_ua(self, obj):
         if not obj.user_agent:
             return "-"
-        return (obj.user_agent[:80] + '...') if len(obj.user_agent) > 80 else obj.user_agent
+        return (obj.user_agent[:80] + "...") if len(obj.user_agent) > 80 else obj.user_agent
     short_ua.short_description = "User Agent"
 
     def has_add_permission(self, request):
@@ -140,35 +207,32 @@ class FailedLoginAttemptAdmin(admin.ModelAdmin):
         import csv
         from django.http import HttpResponse
 
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="failed_login_attempts.csv"'
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="failed_login_attempts.csv"'
         writer = csv.writer(response)
         writer.writerow(["Created At", "Username", "User", "User Agent", "Message"])
         for row in queryset.iterator():
-            writer.writerow([
-                row.created_at.isoformat(),
-                row.username,
-                row.user_id or "",
-                (row.user_agent or "").replace("\n", " "),
-                (row.message or "").replace("\n", " ")
-            ])
+            writer.writerow(
+                [
+                    row.created_at.isoformat(),
+                    row.username,
+                    row.user_id or "",
+                    (row.user_agent or "").replace("\n", " "),
+                    (row.message or "").replace("\n", " "),
+                ]
+            )
         return response
     export_csv.short_description = "Export Selected to CSV"
 
 
 # --------------------------
-# Register remaining models
+# DriverChangeAudit Admin
 # --------------------------
-admin.site.register(User, UserAdmin)
-admin.site.register(SponsorProfile)
-admin.site.register(DriverProfile)
-
-
 @admin.register(DriverChangeAudit)
 class DriverChangeAuditAdmin(admin.ModelAdmin):
-    list_display = ('date', 'sponsor', 'driver', 'field_name', 'old_value', 'new_value')
-    list_filter = ('date', 'sponsor', 'driver')
-    search_fields = ('sponsor__username', 'driver__username')
+    list_display = ("date", "sponsor", "driver", "field_name", "old_value", "new_value")
+    list_filter = ("date", "sponsor", "driver")
+    search_fields = ("sponsor__username", "driver__username")
 
     def has_add_permission(self, request):
         return False
@@ -181,7 +245,7 @@ class DriverChangeAuditAdmin(admin.ModelAdmin):
 
 
 # --------------------------
-# Register PasswordChange model
+# PasswordChange Admin
 # --------------------------
 @admin.register(PasswordChange)
 class PasswordChangeAdmin(admin.ModelAdmin):
@@ -198,8 +262,16 @@ class PasswordChangeAdmin(admin.ModelAdmin):
     def short_ua(self, obj):
         if not obj.user_agent:
             return "-"
-        return (obj.user_agent[:80] + '...') if len(obj.user_agent) > 80 else obj.user_agent
+        return (obj.user_agent[:80] + "...") if len(obj.user_agent) > 80 else obj.user_agent
     short_ua.short_description = "User Agent"
 
     def has_add_permission(self, request):
-        return False  # Only record via code, not manually
+        return False
+
+
+# --------------------------
+# Register main models
+# --------------------------
+admin.site.register(User, UserAdmin)
+admin.site.register(SponsorProfile)
+admin.site.register(DriverProfile)

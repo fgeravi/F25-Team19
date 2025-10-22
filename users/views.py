@@ -10,7 +10,7 @@ from django.contrib.auth.views import PasswordChangeView
 from django.urls import reverse_lazy
 from django.utils import timezone
 from audit.models import PasswordChange
-from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit
+from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization
 from .forms import DriverEditForm
 
 
@@ -40,7 +40,12 @@ def register(request):
                 DriverProfile.objects.create(user=user)
             elif user.is_sponsor:
                 from .models import SponsorProfile
-                SponsorProfile.objects.create(user=user)
+                from .models import SponsorProfile
+                organization = form.cleaned_data.get('organization')
+                if not organization:
+                    # fallback: pick first organization or show error
+                    organization = Organization.objects.first()
+                    SponsorProfile.objects.create(user=user, organization=organization)
 
             messages.success(request, f'Account created for {user.username}!')
             return redirect('login')

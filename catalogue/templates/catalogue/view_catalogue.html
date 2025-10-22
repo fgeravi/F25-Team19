@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}{{ organization.name }} Catalogue{% endblock %}
+
+{% block content %}
+<h2>{{ organization.name }} Catalogue</h2>
+
+<!-- Button to add external products -->
+<div style="margin-bottom: 1rem;">
+    <a href="{% url 'catalogue:external_products' organization.id %}" class="btn btn-primary">
+        Add Products from External Source
+    </a>
+</div>
+
+{% if catalogue and catalogue.items.exists %}
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
+        {% for item in catalogue.items.all %}
+            <div style="border: 1px solid #ddd; border-radius: 8px; padding: 10px;">
+                {% if item.image_url %}
+                    <img src="{{ item.image_url }}" alt="{{ item.product_name }}" style="width: 100%; height: 200px; object-fit: cover;">
+                {% endif %}
+                <h4>{{ item.product_name }}</h4>
+                <p>${{ item.price }}</p>
+                <a href="{{ item.product_url }}" target="_blank">View Product</a>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No items in this catalogue yet.</p>
+{% endif %}
+{% endblock %}
