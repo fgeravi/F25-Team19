@@ -5,7 +5,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from .models import User, DriverProfile, SponsorProfile
+from .models import User, DriverProfile, SponsorProfile, Organization
 
 class UserRegisterForm(UserCreationForm):
     email = forms.EmailField()
@@ -19,10 +19,15 @@ class UserRegisterForm(UserCreationForm):
         required=True,
         label="Account Type"
     )
+    organization = forms.ModelChoiceField(
+        queryset=Organization.objects.all(),
+        required=False,  # Only required if user selects sponsor
+        label="Organization (sponsors only)"
+    )
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'account_type', 'password1', 'password2']
+        fields = ['username', 'email', 'account_type', 'organization', 'password1', 'password2']
 
 # Lockout logic in authentication forms
 class LockedOutAuthenticationForm(AuthenticationForm):

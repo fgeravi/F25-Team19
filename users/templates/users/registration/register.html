@@ -27,6 +27,13 @@
                 {{ form.account_type.errors }}
             </div>
 
+            <!-- Organization (only for sponsors) -->
+            <div class="form-group" id="organization-field" style="display:none;">
+                {{ form.organization.label_tag }}
+                {{ form.organization }}
+                {{ form.organization.errors }}
+            </div>
+
             <!-- Passwords -->
             <div class="form-group">
                 {{ form.password1.label_tag }}
@@ -51,4 +58,28 @@
         </small>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const accountRadios = document.querySelectorAll('input[name="account_type"]');
+        const orgField = document.getElementById('organization-field');
+
+        function toggleOrganization() {
+            const selected = document.querySelector('input[name="account_type"]:checked');
+            if (selected && selected.value === 'sponsor') {
+                orgField.style.display = 'block';
+            } else {
+                orgField.style.display = 'none';
+            }
+        }
+
+        // Initialize visibility
+        toggleOrganization();
+
+        // Listen for changes
+        accountRadios.forEach(radio => {
+            radio.addEventListener('change', toggleOrganization);
+        });
+    });
+</script>
 {% endblock content %}

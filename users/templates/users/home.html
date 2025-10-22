@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Home{% endblock %}
+
 {% block content %}
   <h1>Home</h1>
+
   {% if user.is_authenticated %}
     <p>Welcome {{ user.username }}</p>
-    
+
     {# Session Status Indicator #}
     <div class="alert {% if request.session.remember_me %}alert-info{% else %}alert-secondary{% endif %} mb-3">
       {% if request.session.remember_me %}
@@ -15,27 +17,50 @@
     </div>
 
     {% if user.is_sponsor %}
-      <div>
+      <div class="mb-2">
         <a href="{% url 'rewards:add_points' %}" class="btn btn-primary">
             Award Points to a Driver
         </a>
       </div>
 
-      <div>  
+      <div class="mb-2">  
         <a href="{% url 'manage_drivers' %}" class="btn btn-secondary">
             Manage Driver Accounts
         </a>
       </div>
+
+      {# Buttons that depend on having an organization #}
+      {% if user.sponsorprofile.organization %}
+        <div class="mb-2">
+          <a href="{% url 'catalogue:view_catalogue' user.sponsorprofile.organization.id %}" class="btn btn-success">
+              View My Organization Catalogue
+          </a>
+        </div>
+
+        <div class="mb-2">
+          <a href="{% url 'catalogue:external_products' user.sponsorprofile.organization.id %}" class="btn btn-info">
+              Add Products from External Source
+          </a>
+        </div>
+      {% else %}
+        <p class="text-warning">You don't have an organization assigned yet.</p>
+      {% endif %}
+
     {% elif user.is_driver %}
+      <div class="mb-2">
         <a href="{% url 'rewards:dashboard' %}" class="btn btn-primary">
             View My Points Dashboard
         </a>
-        
+      </div>
+
+      <div class="mb-2">
         <a href="{% url 'catalogue:catalog_list' %}" class="btn btn-success ms-2">
             <i class="bi bi-shop"></i> Browse Catalog
         </a>
-    
+      </div>
     {% endif %}
 
-{% endif %}
+  {% else %}
+    <p>Please <a href="{% url 'login' %}">log in</a> to access your dashboard.</p>
+  {% endif %}
 {% endblock %}
