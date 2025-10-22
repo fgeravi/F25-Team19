@@ -43,7 +43,8 @@ class SessionTimeoutMiddleware:
                                 storage.used = True
                         storage.used = False
                         
-                        messages.warning(request, 
+                        messages.warning(
+                            request, 
                             f'Your session will expire soon. <a href="{reverse("extend_session")}">Click here to extend</a>',
                             extra_tags='safe'
                         )
@@ -86,9 +87,11 @@ class EnforcePasswordRotationMiddleware:
             max_age_days = getattr(settings, "PASSWORD_MAX_AGE_DAYS", 90)
             cutoff = timezone.now() - timedelta(days=max_age_days)
 
+            changed_at = getattr(user, "password_changed_at", None)
+            treat_unknown = getattr(settings, "PASSWORD_TREAT_UNKNOWN_AS_EXPIRED", False)
             expired = (
-                not user.password_changed_at 
-                or user.password_changed_at < cutoff
+                (changed_at is not None and changed_at < cutoff)
+                or (changed_at is None and treat_unknown)
             )
 
             if expired:
@@ -103,4 +106,6 @@ class EnforcePasswordRotationMiddleware:
                         f"Your password has expired (>{max_age_days} days). Please change your password to continue."
                     )
                     return redirect(change_url)
+
         response = self.get_response(request)
+        return response

@@ -69,7 +69,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.EnforcePasswordRotationMiddleware",
+    "users.middleware.EnforcePasswordRotationMiddleware",
     "audit.middleware.NewLocationBannerMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "users.middleware.SessionTimeoutMiddleware",
