@@ -54,6 +54,20 @@
       </a>
     </div>
 
+    {# Always show "Apply to org" #}
+    <div class="mb-2">
+      <a href="{% url 'apply_to_organization' %}" class="btn btn-success ms-2">
+          <i class="bi bi-shop"></i> Apply to an org
+      </a>
+    </div>
+
+    {# Link to view current applications #}
+    <div class="mb-2">
+      <a href="{% url 'driver_applications_list' %}" class="btn btn-info ms-2">
+          <i class="bi bi-list-check"></i> View My Applications
+      </a>
+    </div>
+
     {% if user.driverprofile.organization %}
       <div class="mb-2">
         <a href="{% url 'catalogue:view_catalogue' user.driverprofile.organization.id %}" class="btn btn-success ms-2">
