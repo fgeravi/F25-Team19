@@ -24,7 +24,7 @@
       </a>
     </div>
 
-    <div class="mb-2">  
+    <div class="mb-2">
       <a href="{% url 'manage_drivers' %}" class="btn btn-secondary">
           Manage Driver Accounts
       </a>
@@ -40,6 +40,12 @@
       <div class="mb-2">
         <a href="{% url 'catalogue:external_products' user.sponsorprofile.organization.id %}" class="btn btn-info">
             Add Products from External Source
+        </a>
+      </div>
+
+      <div class="mb-2">
+        <a href="{% url 'sponsor_applications' %}" class="btn btn-warning">
+            <i class="bi bi-list-check"></i> View Applications for My Org
         </a>
       </div>
     {% else %}
