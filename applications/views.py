@@ -77,9 +77,12 @@ def sponsor_view_applications(request):
     })
 
 
+# TODO: TEST THIS -> create a new driver, apply to zachtestorg, login as zachsponsor, accept, log in as new driver, view catalogue
+
 # -------------------------
 # Sponsor accepts/denies an app
 # -------------------------
+@login_required
 @login_required
 def update_application_status(request, app_id):
     if not is_sponsor(request.user):
@@ -89,7 +92,7 @@ def update_application_status(request, app_id):
     application = get_object_or_404(DriverApplication, id=app_id)
     org = getattr(request.user.sponsorprofile, "organization", None)
 
-    # Make sure sponsor belongs to the same org
+    # Ensure sponsor belongs to the same org
     if application.organization != org:
         messages.error(request, "You cannot update applications for other organizations.")
         return redirect("sponsor_applications")
@@ -98,7 +101,38 @@ def update_application_status(request, app_id):
         form = ApplicationUpdateForm(request.POST, instance=application)
         if form.is_valid():
             form.save()
-            messages.success(request, f"Application updated.")
+
+            # Handle accepted status
+            if application.status == "accepted":
+                from users.models import DriverProfile
+
+                driver_profile, created = DriverProfile.objects.get_or_create(
+                    user=application.driver,
+                    defaults={"organization": application.organization}
+                )
+
+                if created:
+                    messages.success(
+                        request,
+                        f"DriverProfile created for {application.driver.username} under {application.organization.name}."
+                    )
+                else:
+                    old_org = driver_profile.organization
+                    if old_org != application.organization:
+                        driver_profile.organization = application.organization
+                        driver_profile.save(update_fields=["organization"])
+                        old_org_name = old_org.name if old_org else "None"
+                        messages.info(
+                            request,
+                            f"{application.driver.username}'s profile updated from {old_org_name} to {application.organization.name}."
+                        )
+                    else:
+                        messages.info(
+                            request,
+                            f"{application.driver.username} is already part of {application.organization.name}."
+                        )
+
+            messages.success(request, "Application updated.")
             return redirect("sponsor_applications")
     else:
         form = ApplicationUpdateForm(instance=application)
