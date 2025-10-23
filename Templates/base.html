@@ -159,7 +159,9 @@
         Hi {{ user.username }} |
         <a href="{% url 'home' %}">Home</a> |
         {% if user.is_driver %}
-          <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a> |
+          {% if organization %}
+            <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a> |
+          {% endif %}
           <a href="{% url 'rewards:dashboard' %}">Points</a> |
         {% endif %}
         <form action="{% url 'logout' %}" method="post" style="display:inline;">

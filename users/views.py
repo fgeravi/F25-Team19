@@ -16,7 +16,21 @@ from .forms import DriverEditForm
 
 @login_required
 def home(request):
-    return render(request, 'users/home.html')
+    organization = None
+
+    # if the user is a driver, get their organization from the driver profile
+    if getattr(request.user, "is_driver", False):
+        driver_profile = getattr(request.user, "driverprofile", None)
+        if driver_profile and driver_profile.organization:
+            organization = driver_profile.organization
+
+    # if the user is a sponsor, get their organization from the sponsor profile
+    elif getattr(request.user, "is_sponsor", False):
+        sponsor_profile = getattr(request.user, "sponsorprofile", None)
+        if sponsor_profile and sponsor_profile.organization:
+            organization = sponsor_profile.organization
+
+    return render(request, 'users/home.html', {"organization": organization})
 
 
 def register(request):
