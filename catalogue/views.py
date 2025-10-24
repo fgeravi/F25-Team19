@@ -4,7 +4,7 @@ from django.contrib import messages
 from organizations.models import Organization
 from .models import Catalogue, CatalogueItem
 from .utils import fetch_products_from_api
-from users.models import SponsorProfile
+from users.models import SponsorProfile, DriverProfile
 import requests
 
 # --------------------------
@@ -75,7 +75,7 @@ def add_product_to_catalogue(request, org_id, product_id):
             "product_url": f"https://fake-store-api.com/products/{product_data['id']}",
             "price": product_data["price"],
             "image_url": product_data["images"][0] if product_data.get("images") else None,
-            "category": product_data["category"]["names"],
+            "category": product_data.get("category", {}).get("name", "Uncategorized"),
         }
     )
 
@@ -88,7 +88,9 @@ def add_product_to_catalogue(request, org_id, product_id):
 # --------------------------
 @login_required
 def view_catalogue(request, org_id):
-    organization = get_object_or_404(Organization, id=org_id)
+
+    organization = get_object_or_404(Organization, id=org_id) # acquire org
+    user = request.user # get user info for context
 
     # Always use the "Default Catalogue"
     catalogue, _ = Catalogue.objects.get_or_create(
@@ -96,9 +98,17 @@ def view_catalogue(request, org_id):
         name="Default Catalogue"
     )
 
-    items = catalogue.items.all()  
+    items = catalogue.items.all()
+
+    # search for items
+    query = request.GET.get("q") # get query from search form on view_catalogue.html
+    if query: # if the query exists
+        items = items.filter(product_name__icontains=query) # filter by if name == search
+
+
     return render(request, "catalogue/view_catalogue.html", {
         "organization": organization,
         "catalogue": catalogue,
         "items": items,
+        "user": user,
     })
