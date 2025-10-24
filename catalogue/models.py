@@ -30,6 +30,8 @@ class CatalogueItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     # New field for "most popular" sorting
     view_count = models.PositiveIntegerField(default=0)
+    # New field for category
+    category = models.CharField(max_length=100, blank=True, null=True)
 
     class Meta:
         ordering = ['-created_at']  # Default to newest first

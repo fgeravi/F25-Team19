@@ -75,6 +75,7 @@ def add_product_to_catalogue(request, org_id, product_id):
             "product_url": f"https://fake-store-api.com/products/{product_data['id']}",
             "price": product_data["price"],
             "image_url": product_data["images"][0] if product_data.get("images") else None,
+            "category": product_data["category"]["names"],
         }
     )
 
@@ -95,8 +96,7 @@ def view_catalogue(request, org_id):
         name="Default Catalogue"
     )
 
-    items = catalogue.items.all()  # assuming you have a related_name="items" on CatalogueItem
-
+    items = catalogue.items.all()  
     return render(request, "catalogue/view_catalogue.html", {
         "organization": organization,
         "catalogue": catalogue,
