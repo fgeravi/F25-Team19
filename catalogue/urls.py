@@ -17,4 +17,6 @@ urlpatterns = [
     path('<int:org_id>/external/', views.external_products, name='external_products'),
     path('<int:org_id>/add/<int:product_id>/', views.add_product_to_catalogue, name='add_product_to_catalogue'),
     path('<int:org_id>/view/', views.view_catalogue, name='view_catalogue'),
+    path("<int:org_id>/delete/<int:item_id>/", views.delete_product, name="delete_catalogue_item"),
+
 ]

@@ -112,3 +112,36 @@ def view_catalogue(request, org_id):
         "items": items,
         "user": user,
     })
+
+
+# ---------------------------------------
+# Delete product from catalogue (sponsor)
+# ---------------------------------------
+@login_required
+def delete_product(request, org_id, item_id):
+    organization = get_object_or_404(Organization, id=org_id)
+
+    # Only allow sponsors to delete
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to delete items.")
+        return redirect("catalogue:view_catalogue", org_id=org_id)
+
+    # Safely get sponsor profile
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+
+    # Verify sponsor belongs to this organization
+    if not sponsor_profile or sponsor_profile.organization != organization:
+        messages.error(request, "You cannot delete items from another organization's catalogue.")
+        return redirect("catalogue:view_catalogue", org_id=org_id)
+
+    # Get the catalogue item within this org
+    item = get_object_or_404(
+        CatalogueItem,
+        id=item_id,
+        catalogue__organization=organization
+    )
+
+    # Delete it
+    item.delete()
+    messages.success(request, f"'{item.product_name}' was removed from the catalogue.")
+    return redirect("catalogue:view_catalogue", org_id=org_id)

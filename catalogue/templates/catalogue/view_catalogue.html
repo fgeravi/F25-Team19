@@ -34,6 +34,14 @@
                 <h4>{{ item.product_name }}</h4>
                 <p>${{ item.price }}</p>
                 <a href="{{ item.product_url }}" target="_blank">View Product</a>
+                {% if user.is_sponsor %}
+                    <form method="post" action="{% url 'catalogue:delete_catalogue_item' organization.id item.id %}" style="margin-top: 0.5rem;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to remove this product?')">
+                            Delete
+                        </button>
+                    </form>
+                {% endif %}
             </div>
         {% endfor %}
     </div>
