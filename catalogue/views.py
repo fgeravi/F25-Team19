@@ -89,21 +89,22 @@ def add_product_to_catalogue(request, org_id, product_id):
 @login_required
 def view_catalogue(request, org_id):
 
-    organization = get_object_or_404(Organization, id=org_id) # acquire org
-    user = request.user # get user info for context
+    organization = get_object_or_404(Organization, id=org_id)
+    user = request.user
 
-    # Always use the "Default Catalogue"
     catalogue, _ = Catalogue.objects.get_or_create(
         organization=organization,
         name="Default Catalogue"
     )
 
-    items = catalogue.items.all()
+    if user.is_sponsor:
+        items = catalogue.items.all()
+    else:
+        items = catalogue.items.filter(is_active=True)
 
-    # search for items
-    query = request.GET.get("q") # get query from search form on view_catalogue.html
-    if query: # if the query exists
-        items = items.filter(product_name__icontains=query) # filter by if name == search
+    query = request.GET.get("q")
+    if query:
+        items = items.filter(product_name__icontains=query)
 
 
     return render(request, "catalogue/view_catalogue.html", {
@@ -148,6 +149,34 @@ def delete_product(request, org_id, item_id):
 
 
 @login_required
+def toggle_item_status(request, org_id, item_id):
+    organization = get_object_or_404(Organization, id=org_id)
+
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to modify items.")
+        return redirect("catalogue:view_catalogue", org_id=org_id)
+
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+
+    if not sponsor_profile or sponsor_profile.organization != organization:
+        messages.error(request, "You cannot modify items from another organization's catalogue.")
+        return redirect("catalogue:view_catalogue", org_id=org_id)
+
+    item = get_object_or_404(
+        CatalogueItem,
+        id=item_id,
+        catalogue__organization=organization
+    )
+
+    item.is_active = not item.is_active
+    item.save()
+    
+    status = "enabled" if item.is_active else "disabled"
+    messages.success(request, f"'{item.product_name}' has been {status}.")
+    return redirect("catalogue:view_catalogue", org_id=org_id)
+
+
+@login_required
 def view_cart(request):
     if not request.user.is_driver:
         messages.error(request, "Only drivers can access the shopping cart.")
@@ -170,6 +199,11 @@ def add_to_cart(request, item_id):
         return redirect("home")
     
     catalogue_item = get_object_or_404(CatalogueItem, id=item_id)
+    
+    if not catalogue_item.is_active:
+        messages.error(request, "This item is currently unavailable.")
+        org_id = catalogue_item.catalogue.organization.id
+        return redirect("catalogue:view_catalogue", org_id=org_id)
     
     cart_item, created = CartItem.objects.get_or_create(
         user=request.user,

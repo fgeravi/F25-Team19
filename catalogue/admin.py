@@ -12,15 +12,15 @@ class CatalogueAdmin(admin.ModelAdmin):
 
 @admin.register(CatalogueItem)
 class CatalogueItemAdmin(admin.ModelAdmin):
-    list_display = ['product_name', 'catalogue', 'price', 'view_count', 'created_at']
-    list_filter = ['catalogue', 'created_at']
+    list_display = ['product_name', 'catalogue', 'price', 'is_active', 'view_count', 'created_at']
+    list_filter = ['catalogue', 'is_active', 'created_at']
     search_fields = ['product_name', 'product_id', 'catalogue__name']
     readonly_fields = ['created_at', 'view_count']
-    list_editable = ['price']
+    list_editable = ['price', 'is_active']
     
     fieldsets = (
         ('Product Information', {
-            'fields': ('product_name', 'product_id', 'product_url', 'price')
+            'fields': ('product_name', 'product_id', 'product_url', 'price', 'is_active')
         }),
         ('Catalog', {
             'fields': ('catalogue',)
