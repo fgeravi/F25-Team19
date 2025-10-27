@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from organizations.models import Organization
-from .models import Catalogue, CatalogueItem
+from .models import Catalogue, CatalogueItem, CartItem
 from .utils import fetch_products_from_api
 from users.models import SponsorProfile, DriverProfile
 import requests
@@ -145,3 +145,79 @@ def delete_product(request, org_id, item_id):
     item.delete()
     messages.success(request, f"'{item.product_name}' was removed from the catalogue.")
     return redirect("catalogue:view_catalogue", org_id=org_id)
+
+
+@login_required
+def view_cart(request):
+    if not request.user.is_driver:
+        messages.error(request, "Only drivers can access the shopping cart.")
+        return redirect("home")
+    
+    cart_items = CartItem.objects.filter(user=request.user).select_related('catalogue_item')
+    
+    total = sum(item.get_total_price() for item in cart_items)
+    
+    return render(request, "catalogue/cart.html", {
+        "cart_items": cart_items,
+        "total": total,
+    })
+
+
+@login_required
+def add_to_cart(request, item_id):
+    if not request.user.is_driver:
+        messages.error(request, "Only drivers can add items to cart.")
+        return redirect("home")
+    
+    catalogue_item = get_object_or_404(CatalogueItem, id=item_id)
+    
+    cart_item, created = CartItem.objects.get_or_create(
+        user=request.user,
+        catalogue_item=catalogue_item,
+        defaults={'quantity': 1}
+    )
+    
+    if not created:
+        cart_item.quantity += 1
+        cart_item.save()
+        messages.success(request, f"Increased quantity of '{catalogue_item.product_name}' in cart.")
+    else:
+        messages.success(request, f"'{catalogue_item.product_name}' added to cart.")
+    
+    org_id = catalogue_item.catalogue.organization.id
+    return redirect("catalogue:view_catalogue", org_id=org_id)
+
+
+@login_required
+def remove_from_cart(request, cart_item_id):
+    if not request.user.is_driver:
+        messages.error(request, "Only drivers can modify the cart.")
+        return redirect("home")
+    
+    cart_item = get_object_or_404(CartItem, id=cart_item_id, user=request.user)
+    product_name = cart_item.catalogue_item.product_name
+    cart_item.delete()
+    
+    messages.success(request, f"'{product_name}' removed from cart.")
+    return redirect("catalogue:view_cart")
+
+
+@login_required
+def update_cart_quantity(request, cart_item_id):
+    if not request.user.is_driver:
+        messages.error(request, "Only drivers can modify the cart.")
+        return redirect("home")
+    
+    if request.method == "POST":
+        cart_item = get_object_or_404(CartItem, id=cart_item_id, user=request.user)
+        quantity = int(request.POST.get("quantity", 1))
+        
+        if quantity > 0:
+            cart_item.quantity = quantity
+            cart_item.save()
+            messages.success(request, "Quantity updated.")
+        else:
+            cart_item.delete()
+            messages.success(request, "Item removed from cart.")
+    
+    return redirect("catalogue:view_cart")

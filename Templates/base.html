@@ -163,6 +163,7 @@
             <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a> |
           {% endif %}
           <a href="{% url 'rewards:dashboard' %}">Points</a> |
+          <a href="{% url 'catalogue:view_cart' %}">🛒 Cart</a> |
         {% endif %}
         <form action="{% url 'logout' %}" method="post" style="display:inline;">
           {% csrf_token %}

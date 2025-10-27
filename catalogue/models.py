@@ -63,3 +63,30 @@ class ItemView(models.Model):
 
     def __str__(self):
         return f"{self.user.username} viewed {self.catalogue_item.product_name}"
+
+
+class CartItem(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='cart_items'
+    )
+    catalogue_item = models.ForeignKey(
+        CatalogueItem,
+        on_delete=models.CASCADE,
+        related_name='in_carts'
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'catalogue_item']
+        ordering = ['-added_at']
+
+    def __str__(self):
+        return f"{self.user.username}'s cart: {self.catalogue_item.product_name} (x{self.quantity})"
+    
+    def get_total_price(self):
+        if self.catalogue_item.price:
+            return self.catalogue_item.price * self.quantity
+        return 0

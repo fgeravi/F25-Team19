@@ -5,7 +5,14 @@
 {% block content %}
 <h2>{{ organization.name }} Catalogue</h2>
 
-<!-- Button to add external products -->
+{% if user.is_driver %}
+    <div style="margin-bottom: 1rem;">
+        <a href="{% url 'catalogue:view_cart' %}" style="padding: 10px 20px; background-color: #28a745; color: white; text-decoration: none; border-radius: 4px;">
+            🛒 View Cart
+        </a>
+    </div>
+{% endif %}
+
 {% if user.is_sponsor %}
     <div style="margin-bottom: 1rem;">
         <a href="{% url 'catalogue:external_products' organization.id %}" class="btn btn-primary">
@@ -34,6 +41,16 @@
                 <h4>{{ item.product_name }}</h4>
                 <p>${{ item.price }}</p>
                 <a href="{{ item.product_url }}" target="_blank">View Product</a>
+                
+                {% if user.is_driver %}
+                    <form method="post" action="{% url 'catalogue:add_to_cart' item.id %}" style="margin-top: 0.5rem;">
+                        {% csrf_token %}
+                        <button type="submit" style="width: 100%; padding: 8px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Add to Cart
+                        </button>
+                    </form>
+                {% endif %}
+                
                 {% if user.is_sponsor %}
                     <form method="post" action="{% url 'catalogue:delete_catalogue_item' organization.id item.id %}" style="margin-top: 0.5rem;">
                         {% csrf_token %}
