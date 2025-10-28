@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Notification Settings{% endblock %}
+
+{% block content %}
+<h1>Notification Settings</h1>
+
+<p>Control what alerts you get. You’ll still get critical account/security messages.</p>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  <div class="form-group" style="margin-bottom: 1rem;">
+    <label style="display: flex; align-items: center;">
+      {{ form.notify_points_change }}
+      <span style="margin-left: 0.5rem;">Notify me when my points are added or removed</span>
+    </label>
+    {% if form.notify_points_change.errors %}
+        <div style="color:red;">{{ form.notify_points_change.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="form-group" style="margin-bottom: 1rem;">
+    <label style="display: flex; align-items: center;">
+      {{ form.notify_order_placed }}
+      <span style="margin-left: 0.5rem;">Notify me when I place an order</span>
+    </label>
+    {% if form.notify_order_placed.errors %}
+        <div style="color:red;">{{ form.notify_order_placed.errors }}</div>
+    {% endif %}
+  </div>
+
+  <p style="font-size: 0.9rem; color:#555; margin-bottom:1rem;">
+    You will always be notified if a sponsor drops you from the program.
+  </p>
+
+  <button type="submit" style="
+      background:#007bff;
+      color:white;
+      border:none;
+      padding:0.6rem 1rem;
+      border-radius:4px;
+      cursor:pointer;">
+    Save Settings
+  </button>
+</form>
+
+{% endblock %}

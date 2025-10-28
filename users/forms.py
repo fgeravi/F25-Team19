@@ -1,6 +1,8 @@
 # users/forms.py
 
 from django import forms
+from django import forms
+from .models import DriverProfile
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import get_user_model
@@ -128,4 +130,18 @@ class DriverEditForm(forms.ModelForm):
         fields = ['first_name', 'last_name', 'email', 'is_active']
         help_texts = {
             'is_active': 'Uncheck this to deactivate the driver. They will not be able to log in.'
+        }
+
+        
+class NotificationPreferenceForm(forms.ModelForm):
+    class Meta:
+        model = DriverProfile
+        fields = ["notify_points_change", "notify_order_placed"]
+        labels = {
+            "notify_points_change": "Email / in-app alerts when my points change",
+            "notify_order_placed": "Alerts when I place an order",
+        }
+        widgets = {
+            "notify_points_change": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "notify_order_placed": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
