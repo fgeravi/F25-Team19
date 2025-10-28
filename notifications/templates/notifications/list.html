@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+  <h2>Notifications</h2>
+  <p><a href="{% url 'notifications:read_all' %}">Mark all as read</a></p>
+  <ul>
+    {% for n in notifications %}
+      <li>
+        {% if not n.is_read %}<strong>[NEW]</strong>{% endif %}
+        {{ n.message }} — {{ n.created_at|date:"Y-m-d H:i" }}
+        {% if n.link %}<a href="{{ n.link }}">View</a>{% endif %}
+        {% if not n.is_read %} <a href="{% url 'notifications:read_one' n.pk %}">mark read</a>{% endif %}
+      </li>
+    {% empty %}
+      <li>No notifications yet.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

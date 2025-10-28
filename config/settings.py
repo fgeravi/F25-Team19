@@ -58,8 +58,9 @@ INSTALLED_APPS = [
     "organizations",
     "rewards",
     "applications",
-    "catalogue",
     "audit.apps.AuditConfig",
+    "notifications.apps.NotificationsConfig",
+    "catalogue.apps.CatalogueConfig",
 ]
 
 MIDDLEWARE = [

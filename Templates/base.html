@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>{% block title %}My Site{% endblock %}</title>
+    {% load notifications_extras %}
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
@@ -166,9 +167,14 @@
           <a href="{% url 'catalogue:view_cart' %}">🛒 Cart</a> |
         {% endif %}
 
+        {% unread_notifications_count as unread_count %}
+        <a href="{% url 'notifications:list' %}">
+          Notifications{% if unread_count %} ({{ unread_count }}){% endif %}
+        </a> |
+
         {% if perms.audit.can_download_own_reports or perms.audit.can_download_reports %}
-  <a href="{% url 'audit:report_csv' %}">Download CSV</a> |
-{% endif %}
+          <a href="{% url 'audit:report_csv' %}">Download CSV</a> |
+        {% endif %}
 
         <form action="{% url 'logout' %}" method="post" style="display:inline;">
           {% csrf_token %}
@@ -178,6 +184,6 @@
     {% endif %}
 
     {% block content %}{% endblock %}
-    {% block extra_js %} {% endblock %}
+    {% block extra_js %}{% endblock %}
   </body>
 </html>
