@@ -165,6 +165,7 @@
           {% endif %}
           <a href="{% url 'rewards:dashboard' %}">Points</a> |
           <a href="{% url 'catalogue:view_cart' %}">🛒 Cart</a> |
+          <a href="{% url 'notification_preferences' %}">Alerts</a> |
         {% endif %}
 
         {% unread_notifications_count as unread_count %}

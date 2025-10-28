@@ -9,6 +9,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from organizations.models import Organization
 from .config import LockoutConfig
+from notifications.models import Notification
 from django.contrib.auth.models import AbstractUser
 
 
@@ -49,6 +50,11 @@ class DriverProfile(models.Model):
     vehicle_info = models.CharField(max_length=255)
     current_points = models.PositiveIntegerField(default=0)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, null=True, blank=True)
+
+    # notification preferences
+    notify_points_change = models.BooleanField(default=True)
+    notify_order_placed = models.BooleanField(default=True)
+    # note: dropped-by-sponsor cant be disabled, so we don't have a flag for it
 
     def __str__(self):
         return f"Driver: {self.user.username}"
@@ -131,11 +137,12 @@ def ensure_org_welcome(sender, instance, created, **kwargs):
 @receiver(post_save, sender=DriverProfile)
 def auto_send_driver_welcome(sender, instance, created, **kwargs):
     if created and instance.user and is_driver(instance.user):
-        DriverNotification.objects.create(
-            driver_user=instance.user,
-            content=current_welcome_message(instance.organization),
-            metadata={"type": "welcome"},
-        )
+        send_driver_notification(
+        driver_user=instance.user,
+        content=current_welcome_message(instance.organization),
+        notif_type="welcome",
+        metadata_extra={},
+)
 
 
 # ----------------------
@@ -292,3 +299,42 @@ class PasswordEvent(models.Model):
     def __str__(self):
         who = self.user.username if self.user else (self.username or "unknown")
         return f"{self.event_type} for {who} at {self.created_at}"
+    
+def send_driver_notification(driver_user, content, notif_type, metadata_extra=None):
+    """
+    Central place to send a driver notification with respect to their preferences.
+
+    notif_type should be one of:
+    - "dropped"                (cannot be disabled)
+    - "points_change"          (can be disabled by driver)
+    - "order_placed"           (can be disabled by driver)
+    - "welcome"                (welcome message, send unconditionally is fine)
+    """
+
+    if not driver_user or not getattr(driver_user, "is_driver", False):
+        return  # not a driver, skip
+
+    try:
+        profile = driver_user.driverprofile
+    except DriverProfile.DoesNotExist:
+        profile = None
+
+    # Enforce rules
+    if notif_type == "dropped":
+        allow = True  # cannot be disabled
+    elif notif_type == "points_change":
+        allow = profile.notify_points_change if profile else True
+    elif notif_type == "order_placed":
+        allow = profile.notify_order_placed if profile else True
+    else:
+        # default safe behavior: send
+        allow = True
+
+    if not allow:
+        return
+
+    Notification.objects.create(
+    user=driver_user,
+    message=content,
+    link=metadata_extra.get("link", "") if metadata_extra else "",
+)

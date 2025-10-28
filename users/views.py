@@ -4,6 +4,8 @@ from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
 from .forms import AccountForm, DriverProfileForm, SponsorProfileForm
 from .forms import LockedOutAuthenticationForm
+from .forms import NotificationPreferenceForm
+from django.contrib.auth.decorators import login_required
 from .models import DriverNotification  # NEW import
 # Password Change addition
 from django.contrib.auth.views import PasswordChangeView
@@ -206,3 +208,32 @@ def edit_driver_view(request, driver_id):
         'driver_user': driver_user
     }
     return render(request, 'users/edit_driver.html', context)
+
+@login_required
+def notification_preferences(request):
+    # Only drivers have these prefs right now
+    if not getattr(request.user, "is_driver", False):
+        messages.error(request, "Only drivers can manage notification preferences.")
+        return redirect("home")
+
+    driver_profile = getattr(request.user, "driverprofile", None)
+    if not driver_profile:
+        messages.error(request, "Driver profile not found.")
+        return redirect("home")
+
+    if request.method == "POST":
+        form = NotificationPreferenceForm(request.POST, instance=driver_profile)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Your notification settings have been updated.")
+            return redirect("notification_preferences")
+    else:
+        form = NotificationPreferenceForm(instance=driver_profile)
+
+    return render(
+        request,
+        "users/notifications/preferences.html",
+        {
+            "form": form,
+        },
+    )
