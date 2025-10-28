@@ -1,0 +1,7 @@
+{# templates/partials/download_csv_button.html #}
+{% with qs=request.GET.urlencode %}
+<a class="btn btn-outline-primary"
+   href="{% url 'report_csv' %}{% if qs %}?{{ qs }}{% endif %}">
+  {{ label|default:"Download CSV" }}
+</a>
+{% endwith %}

@@ -3,6 +3,10 @@
 {% block content %}
 <h1>My Applications</h1>
 
+{% if perms.audit.can_download_own_reports %}
+  {% include "partials/download_csv_button.html" with label="Download My CSV" %}
+{% endif %}
+
 {% if messages %}
   <ul class="messages">
     {% for message in messages %}

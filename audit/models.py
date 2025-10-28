@@ -55,3 +55,10 @@ class KnownLoginLocations(models.Model):
             parts = ip_str.split(':') # Handle IPv6
             parts += ['0'] * (8 - len(parts))
             return ':'.join(parts[:4]) + ':*'
+        
+class Report(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Report"
+        

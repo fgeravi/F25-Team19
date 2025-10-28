@@ -3,6 +3,10 @@
 {% block content %}
 <h2>Applications for {{ org.name }}</h2>
 
+{% if perms.audit.can_download_reports %}
+  {% include "partials/download_csv_button.html" with label="Download CSV" %}
+{% endif %}
+
 <table>
     <thead>
         <tr>

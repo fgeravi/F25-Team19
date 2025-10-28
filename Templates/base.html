@@ -12,12 +12,12 @@
       .alert-success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
       .alert-warning { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
       .alert-info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-      #message-container { 
-        position: fixed; 
-        top: 10px; 
-        right: 10px; 
-        width: 300px; 
-        z-index: 1000; 
+      #message-container {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        width: 300px;
+        z-index: 1000;
       }
       .message-item {
         margin-bottom: 10px;
@@ -164,6 +164,11 @@
           {% endif %}
           <a href="{% url 'rewards:dashboard' %}">Points</a> |
         {% endif %}
+
+        {% if perms.audit.can_download_own_reports or perms.audit.can_download_reports %}
+  <a href="{% url 'audit:report_csv' %}">Download CSV</a> |
+{% endif %}
+
         <form action="{% url 'logout' %}" method="post" style="display:inline;">
           {% csrf_token %}
           <button type="submit" class="link-button">Logout</button>

@@ -41,6 +41,7 @@ AUTH_USER_MODEL = "users.User"
 # custom auth backend to handle lockouts
 AUTHENTICATION_BACKENDS = [
     "users.backends.LockedoutBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
 
 # Application definition
@@ -56,9 +57,9 @@ INSTALLED_APPS = [
     "about",
     "organizations",
     "rewards",
-    "audit",
     "applications",
-    "catalogue"
+    "catalogue",
+    "audit.apps.AuditConfig",
 ]
 
 MIDDLEWARE = [

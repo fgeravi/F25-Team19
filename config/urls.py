@@ -34,7 +34,7 @@ urlpatterns = [
     path('rewards/', include('rewards.urls')),
     path("apply/", include("applications.urls")),
     path('catalog/', include('catalogue.urls')),
-    path('audit/', include('audit.urls')),
+    path('audit/', include(('audit.urls', "audit"), namespace="audit")),
     path('accounts/password/change/', auth_views.PasswordChangeView.as_view(), name='password_change'),
-    path('accounts/password/change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),       
+    path('accounts/password/change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),    
 ]
