@@ -11,6 +11,9 @@ from .models import (
 )
 from .config import LockoutConfig
 from audit.models import PasswordChange
+from django.urls import path
+from django.shortcuts import render
+from users.views import admin_import_users_view
 
 # Set custom login form for admin
 admin.site.login_form = LockedOutAdminAuthenticationForm
@@ -142,6 +145,8 @@ class UserAdmin(BaseUserAdmin):
     filter_horizontal = ("groups", "user_permissions")
     actions = ["hide_users", "unlock_users"]
 
+    changelist_template = "admin/users/user/change_list.html"
+
     # --------------------------
     # Inline logic
     # --------------------------
@@ -191,6 +196,13 @@ class UserAdmin(BaseUserAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.filter(is_active=True)
+    
+    def get_urls(self):
+        urls = super().get_urls()
+        my_urls = [
+            path('import-users/', self.admin_site.admin_view(admin_import_users_view), name='users_user_import'),
+        ]
+        return my_urls + urls
 
 
 # --------------------------

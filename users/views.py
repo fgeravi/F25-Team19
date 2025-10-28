@@ -14,6 +14,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from audit.models import PasswordChange
 from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization
+from django.contrib.admin.views.decorators import staff_member_required
 from .forms import DriverEditForm
 
 
@@ -382,3 +383,94 @@ def import_drivers_view(request):
         'success_messages': success_messages,
     }
     return render(request, 'users/import_drivers.html', context)
+
+
+@staff_member_required
+def admin_import_users_view(request):
+    error_messages = []
+    success_messages = []
+    
+    organizations_in_session = {}
+
+    if request.method == 'POST':
+        form = DriverImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = request.FILES['file']
+            try:
+                lines = uploaded_file.read().decode('utf-8').splitlines()
+
+                for i, line in enumerate(lines):
+                    line_num = i + 1
+                    try:
+                        parts = line.strip().split('|')
+                        user_type = parts[0]
+
+                        if user_type == 'O':
+                            if len(parts) != 2:
+                                error_messages.append(f"Line {line_num}: Organization ('O') records must have the format O|OrganizationName.")
+                                continue
+                            org_name = parts[1]
+                            if Organization.objects.filter(name=org_name).exists() or org_name in organizations_in_session:
+                                error_messages.append(f"Line {line_num}: Organization '{org_name}' already exists.")
+                                continue
+                            
+                            new_org = Organization.objects.create(name=org_name)
+                            organizations_in_session[org_name] = new_org
+                            success_messages.append(f"Successfully created organization: {org_name}")
+
+                        elif user_type in ['D', 'S']:
+                            if len(parts) != 5:
+                                error_messages.append(f"Line {line_num}: User ('D' or 'S') records must have the format Type|OrgName|FirstName|LastName|Email.")
+                                continue
+                            
+                            _, org_name, first_name, last_name, email = parts
+
+                            if not all([org_name, first_name, last_name, email]):
+                                error_messages.append(f"Line {line_num}: Organization, first name, last name, and email are required.")
+                                continue
+                            if User.objects.filter(email=email).exists():
+                                error_messages.append(f"Line {line_num}: User with email '{email}' already exists.")
+                                continue
+
+                            organization = None
+                            if org_name in organizations_in_session:
+                                organization = organizations_in_session[org_name]
+                            else:
+                                try:
+                                    organization = Organization.objects.get(name=org_name)
+                                except Organization.DoesNotExist:
+                                    error_messages.append(f"Line {line_num}: Organization '{org_name}' not found. It must exist or be created earlier in this file.")
+                                    continue
+                            
+                            temp_password = get_random_string(10)
+                            user = User.objects.create_user(username=email, email=email, first_name=first_name, last_name=last_name, password=temp_password)
+
+                            if user_type == 'D':
+                                user.is_driver = True
+                                DriverProfile.objects.create(user=user, organization=organization)
+                            elif user_type == 'S':
+                                user.is_sponsor = True
+                                SponsorProfile.objects.create(user=user, organization=organization)
+                            
+                            user.save()
+                            success_messages.append(f"Successfully created {email} in '{org_name}'. Password: {temp_password}")
+                        
+                        else:
+                            error_messages.append(f"Line {line_num}: Invalid record type '{user_type}'. Must be 'O', 'D', or 'S'.")
+
+                    except Exception as e:
+                        error_messages.append(f"Line {line_num}: An unexpected error occurred - {e}")
+
+            except Exception as e:
+                messages.error(request, f"Could not read or process the file. Error: {e}")
+    else:
+        form = DriverImportForm()
+
+    context = {
+        'form': form,
+        'error_messages': error_messages,
+        'success_messages': success_messages,
+        'title': 'Import Users and Organizations',
+        'has_permission': True,
+    }
+    return render(request, 'admin/users/user/import_users.html', context)

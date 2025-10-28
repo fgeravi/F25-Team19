@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<div>
+    <p>Upload a pipe-delimited text file to bulk create organizations, drivers, and sponsors.</p>
+    <p><strong>Admin File Format:</strong></p>
+    <ul>
+        <li><code>O|OrganizationName</code></li>
+        <li><code>D|OrganizationName|FirstName|LastName|email@example.com</code></li>
+        <li><code>S|OrganizationName|FirstName|LastName|email@example.com</code></li>
+    </ul>
+    <hr>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <div class="form-group mt-3">
+            <button type="submit">Upload and Process</button>
+        </div>
+    </form>
+
+    {% if success_messages or error_messages %}
+    <div class="mt-5">
+        <h2>Import Results</h2>
+        {% if success_messages %}
+            <div class="messagelist">
+                <div class="success">
+                    <h6>Successfully Processed:</h6>
+                    <ul style="list-style-type: disc; margin-left: 20px;">
+                        {% for msg in success_messages %}<li>{{ msg }}</li>{% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+        {% if error_messages %}
+            <div class="messagelist">
+                <div class="error">
+                    <h6>Errors Encountered (these lines were skipped):</h6>
+                    <ul style="list-style-type: disc; margin-left: 20px;">
+                        {% for msg in error_messages %}<li>{{ msg }}</li>{% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
