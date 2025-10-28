@@ -192,3 +192,6 @@ class DriverCreationForm(forms.ModelForm):
             if organization:
                 DriverProfile.objects.create(user=user, organization=organization)
         return user
+    
+class DriverImportForm(forms.Form):
+    file = forms.FileField(label="Select a pipe-delimited text file (.txt)")

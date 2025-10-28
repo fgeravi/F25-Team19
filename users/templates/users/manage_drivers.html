@@ -3,7 +3,12 @@
 {% block content %}
 <div class="container mt-4">
     <h1>Manage Drivers</h1>
-    <a href="{% url 'add_driver' %}" class="btn btn-primary">Add Driver</a>
+    <div>
+        <a href="{% url 'add_driver' %}" class="btn btn-primary">Add Driver</a>
+    </div>
+    <div>
+        <a href="{% url 'import_drivers' %}" class="btn btn-success">Import Drivers</a>
+    </div>
     <p>Here you can view and edit the driver accounts for your organization.</p>
     <hr>
     

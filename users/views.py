@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
-from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm
+from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm, DriverImportForm
 from .forms import LockedOutAuthenticationForm
 from .forms import NotificationPreferenceForm
 from django.contrib.auth.decorators import login_required
@@ -10,6 +10,7 @@ from .models import DriverNotification  # NEW import
 # Password Change addition
 from django.contrib.auth.views import PasswordChangeView
 from django.urls import reverse_lazy
+from django.utils.crypto import get_random_string
 from django.utils import timezone
 from audit.models import PasswordChange
 from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization
@@ -297,3 +298,87 @@ def add_driver_view(request):
         'form': form
     }
     return render(request, 'users/add_driver.html', context)
+
+
+
+
+@login_required
+def import_drivers_view(request):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    try:
+        sponsor_organization = request.user.sponsorprofile.organization
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+
+    error_messages = []
+    success_messages = []
+
+    if request.method == 'POST':
+        form = DriverImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            uploaded_file = request.FILES['file']
+            
+            try:
+                lines = uploaded_file.read().decode('utf-8').splitlines()
+
+                for i, line in enumerate(lines):
+                    line_num = i + 1
+                    try:
+                        parts = line.strip().split('|')
+
+                        if len(parts) != 4:
+                            error_messages.append(f"Line {line_num}: Invalid format. Must be 4 values per line.")
+                            continue
+                        
+                        user_type, first_name, last_name, email = parts
+
+                        if user_type not in ['D', 'S']:
+                            error_messages.append(f"Line {line_num}: Invalid user type '{user_type}'.")
+                            continue
+                        if not all([first_name, last_name, email]):
+                            error_messages.append(f"Line {line_num}: First name, last name, and email are required.")
+                            continue
+                        if User.objects.filter(email=email).exists():
+                            error_messages.append(f"Line {line_num}: User with email '{email}' already exists.")
+                            continue
+
+                        temp_password = get_random_string(10)
+               
+                        user = User.objects.create_user(
+                            username=email,
+                            email=email,
+                            first_name=first_name,
+                            last_name=last_name,
+                            password=temp_password
+                        )
+
+                        if user_type == 'D':
+                            user.is_driver = True
+                            DriverProfile.objects.create(user=user, organization=sponsor_organization)
+                        elif user_type == 'S':
+                            user.is_sponsor = True
+                            SponsorProfile.objects.create(user=user, organization=sponsor_organization)
+                        
+                        user.save()
+                        
+                        success_messages.append(f"Successfully created user for {email}. Temporary password: {temp_password}")
+
+                    except Exception as e:
+                        error_messages.append(f"Line {line_num}: An unexpected error occurred - {e}")
+            
+            except Exception as e:
+                messages.error(request, f"Could not read the uploaded file. Error: {e}")
+
+    else:
+        form = DriverImportForm()
+
+    context = {
+        'form': form,
+        'error_messages': error_messages,
+        'success_messages': success_messages,
+    }
+    return render(request, 'users/import_drivers.html', context)

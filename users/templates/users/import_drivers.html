@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Import Drivers and Sponsors</h2>
+    <p>Upload a pipe-delimited text file to bulk create users for your organization.</p>
+    <p>The format for each line should be: <code>D|FirstName|LastName|email@example.com</code> for a driver, or <code>S|FirstName|LastName|email@example.com</code> for a sponsor.</p>
+    <hr>
+    
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Upload File</legend>
+            {{ form.as_p }}
+        </fieldset>
+        <div class="form-group mt-3">
+            <button class="btn btn-outline-info" type="submit">Upload and Process</button>
+            <a class="btn btn-outline-secondary" href="{% url 'manage_drivers' %}">Cancel</a>
+        </div>
+    </form>
+    
+    {% if success_messages or error_messages %}
+    <div class="mt-5">
+        <h4>Import Results</h4>
+        <hr>
+        {% if success_messages %}
+            <div class="alert alert-success">
+                <h6>Successfully Created Users:</h6>
+                <ul>
+                    {% for msg in success_messages %}
+                        <li>{{ msg }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        {% if error_messages %}
+            <div class="alert alert-danger">
+                <h6>Errors Encountered (these lines were skipped):</h6>
+                <ul>
+                    {% for msg in error_messages %}
+                        <li>{{ msg }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
