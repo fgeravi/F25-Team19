@@ -163,6 +163,7 @@
             <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a> |
           {% endif %}
           <a href="{% url 'rewards:dashboard' %}">Points</a> |
+          <a href="{% url 'catalogue:view_cart' %}">🛒 Cart</a> |
         {% endif %}
 
         {% if perms.audit.can_download_own_reports or perms.audit.can_download_reports %}

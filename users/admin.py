@@ -53,9 +53,27 @@ class DriverProfileInline(admin.StackedInline):
     extra = 0
 
 
-# --------------------------
-# User Admin
-# --------------------------
+class LockoutStatusFilter(admin.SimpleListFilter):
+    title = 'lockout status'
+    parameter_name = 'lockout'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('locked', 'Currently Locked'),
+            ('unlocked', 'Not Locked'),
+            ('has_attempts', 'Has Failed Attempts'),
+        )
+
+    def queryset(self, request, queryset):
+        from django.utils import timezone
+        if self.value() == 'locked':
+            return queryset.filter(lockout_until__gt=timezone.now())
+        if self.value() == 'unlocked':
+            return queryset.filter(lockout_until__isnull=True) | queryset.filter(lockout_until__lte=timezone.now())
+        if self.value() == 'has_attempts':
+            return queryset.filter(failed_login_attempts__gt=0)
+
+
 class UserAdmin(BaseUserAdmin):
     form = CustomUserChangeForm
     add_form = CustomUserCreationForm
@@ -71,7 +89,16 @@ class UserAdmin(BaseUserAdmin):
         "lockout_status",
         "lockout_until",
     )
-    list_filter = ("is_sponsor", "is_driver", "is_staff", "is_superuser")
+    list_filter = (
+        "is_sponsor",
+        "is_driver",
+        "is_staff",
+        "is_superuser",
+        "is_active",
+        "date_joined",
+        "last_login",
+        LockoutStatusFilter,
+    )
 
     fieldsets = (
         (None, {"fields": ("username", "email", "password")}),

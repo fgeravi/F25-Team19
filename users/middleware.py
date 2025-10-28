@@ -13,30 +13,24 @@ class SessionTimeoutMiddleware:
 
     def __call__(self, request):
         if request.user.is_authenticated:
-            # Get the timestamp of last activity
             last_activity = request.session.get('last_activity')
             now = timezone.now().timestamp()
-            inactive_time = 0  # Initialize to 0
+            inactive_time = 0
 
             if last_activity:
-                # Calculate time since last activity
                 inactive_time = now - float(last_activity)
 
-                # Get session timeout
                 session_timeout = request.session.get('_session_init_timestamp_')
                 if session_timeout is None:
-                    # Initialize session timestamp on first activity
                     request.session['_session_init_timestamp_'] = now
                     session_timeout = now
 
                 elapsed_time = now - float(session_timeout)
                 expiry = request.session.get_expiry_age()
 
-                # Show warning when 1 minute remains
-                if expiry > 0:  # Only show warning for timed sessions
-                    warning_time = expiry - 60  # 1 minute before expiry
+                if expiry > 0:
+                    warning_time = expiry - 60
                     if elapsed_time > warning_time and not request.session.get('timeout_warning_shown', False):
-                        # Clear any existing timeout messages first
                         storage = messages.get_messages(request)
                         for message in storage:
                             if 'session will expire' in str(message) or 'session has been extended' in str(message):
@@ -50,16 +44,13 @@ class SessionTimeoutMiddleware:
                         )
                         request.session['timeout_warning_shown'] = True
 
-                # Check for session expiry
                 if expiry > 0 and elapsed_time > expiry:
                     messages.info(request, 'Your session has expired due to inactivity.')
                     request.session.flush()
                     return redirect(f'{reverse("login")}?next={request.path}')
             
-            # Update last activity timestamp
             request.session['last_activity'] = now
             
-            # Clear warning flag if activity is detected and last warning was more than 1 minute ago
             if request.session.get('timeout_warning_shown') and inactive_time < 840:
                 del request.session['timeout_warning_shown']
 
@@ -81,7 +72,7 @@ class EnforcePasswordRotationMiddleware:
         if (
             user 
             and user.is_authenticated
-            and (user.is_staff or user.is_superuser)  # Only enforce for admin users
+            and (user.is_staff or user.is_superuser)
             and not _is_path_allowed(path)
         ):
             max_age_days = getattr(settings, "PASSWORD_MAX_AGE_DAYS", 90)
