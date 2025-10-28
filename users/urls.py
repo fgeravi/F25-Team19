@@ -41,6 +41,7 @@ urlpatterns = [
 
     # --- Sponsor Management ---
     path("manage-drivers/", views.manage_drivers_view, name="manage_drivers"),
+    path("manage-drivers/add/", views.add_driver_view, name="add_driver"),
     path("manage-drivers/edit/<int:driver_id>/", views.edit_driver_view, name="edit_driver"),
     path("account/point-value/", edit_point_value_view, name="edit_point_value"),
 

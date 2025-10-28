@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Add New Driver</h2>
+    <p>Create a new driver account for your organization.</p>
+    <hr>
+    <form method="POST">
+        {% csrf_token %}
+        <fieldset class="form-group">
+            <legend class="border-bottom mb-4">Driver Details</legend>
+            
+            {% for field in form %}
+              <div class="mb-3">
+                {{ field.label_tag }}
+                {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% for error in field.errors %}
+                  <div class="alert alert-danger">
+                    {{ error }}
+                  </div>
+                {% endfor %}
+              </div>
+            {% endfor %}
+
+        </fieldset>
+        <div class="form-group mt-3">
+            <button class="btn btn-outline-info" type="submit">Create Driver</button>
+            <a class="btn btn-outline-secondary" href="{% url 'manage_drivers' %}">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

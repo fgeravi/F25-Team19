@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
-from .forms import AccountForm, DriverProfileForm, SponsorProfileForm
+from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm
 from .forms import LockedOutAuthenticationForm
 from .forms import NotificationPreferenceForm
 from django.contrib.auth.decorators import login_required
@@ -271,3 +271,29 @@ def notification_preferences(request):
             "form": form,
         },
     )
+
+@login_required
+def add_driver_view(request):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    try:
+        sponsor_organization = request.user.sponsorprofile.organization
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = DriverCreationForm(request.POST)
+        if form.is_valid():
+            form.save(organization=sponsor_organization)
+            messages.success(request, "New driver has been added successfully.")
+            return redirect('manage_drivers')
+    else:
+        form = DriverCreationForm()
+
+    context = {
+        'form': form
+    }
+    return render(request, 'users/add_driver.html', context)
