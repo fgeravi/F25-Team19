@@ -331,11 +331,11 @@ def import_drivers_view(request):
                     try:
                         parts = line.strip().split('|')
 
-                        if len(parts) != 4:
-                            error_messages.append(f"Line {line_num}: Invalid format. Must be 4 values per line.")
+                        if len(parts) != 5:
+                            error_messages.append(f"Line {line_num}: Invalid format. Must be 5 values per line (e.g., D||FirstName|LastName|Email).")
                             continue
                         
-                        user_type, first_name, last_name, email = parts
+                        user_type, _, first_name, last_name, email = parts
 
                         if user_type not in ['D', 'S']:
                             error_messages.append(f"Line {line_num}: Invalid user type '{user_type}'.")
@@ -348,7 +348,7 @@ def import_drivers_view(request):
                             continue
 
                         temp_password = get_random_string(10)
-               
+                        
                         user = User.objects.create_user(
                             username=email,
                             email=email,
