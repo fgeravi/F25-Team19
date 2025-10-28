@@ -1,39 +1,74 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
+
 {% block content %}
+
+<div style="max-width:400px; margin:4rem auto; text-align:center;">
+
   <h1>Login</h1>
-  <form method="post">
+
+  <form method="post" style="text-align:left; margin-top:1rem;">
     {% csrf_token %}
     {{ form.non_field_errors }}
 
     {% if form.non_field_errors %}
-      <div class="alert alert-danger" role="alert">
+      <div class="alert alert-danger" role="alert" style="color:#b00020; background:#ffdada; padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem;">
         {% for error in form.non_field_errors %}
-          <p>{{ error }}</p>
+          <p style="margin:0;">{{ error }}</p>
         {% endfor %}
       </div>
     {% endif %}
 
-    <p>
-      <label for="id_username">Username</label><br>
+    <div style="margin-bottom:1rem;">
+      <label for="id_username" style="display:block; font-weight:600; margin-bottom:0.25rem;">
+        Username
+      </label>
       {{ form.username }}
-    </p>
-    <p>
-      <label for="id_password">Password</label><br>
+    </div>
+
+    <div style="margin-bottom:1rem;">
+      <label for="id_password" style="display:block; font-weight:600; margin-bottom:0.25rem;">
+        Password
+      </label>
       {{ form.password }}
-    </p>
-    <p>
+    </div>
+
+    <div style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
       {{ form.remember_me }}
       <label for="{{ form.remember_me.id_for_label }}">Remember me</label>
-    </p>
+    </div>
 
-    <p>Don't have an account? <a href="{% url 'register' %}">Sign up here</a></p>
+    <button type="submit" style="
+      background:#007bff;
+      color:white;
+      border:none;
+      padding:0.6rem 1rem;
+      border-radius:4px;
+      cursor:pointer;
+      width:100%;
+      font-size:1rem;
+      font-weight:600;">
+      Log in
+    </button>
 
     {% if next %}
       <input type="hidden" name="next" value="{{ next }}">
     {% endif %}
-
-    <button type="submit">Log in</button>
   </form>
-  <p>Admins: please use <code>/admin/</code> instead.</p>
+
+  <p style="margin-top:1rem;">
+    <a href="{% url 'password_reset' %}">Forgot your password?</a>
+  </p>
+
+  <p style="margin-top:0.5rem;">
+    Don’t have an account?
+    <a href="{% url 'register' %}">Sign up here</a>
+  </p>
+
+  <p style="margin-top:0.5rem; font-size:0.9rem; color:#777;">
+    Admins: please use <a href="/admin/">/admin/</a> instead.
+  </p>
+
+</div>
+
 {% endblock %}
