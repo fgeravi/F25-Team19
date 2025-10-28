@@ -1,11 +1,20 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db import transaction
 from organizations.models import Organization
-from .models import Catalogue, CatalogueItem, CartItem
+from .models import (
+    Catalogue,
+    CatalogueItem,
+    CartItem,
+    Order,
+    OrderItem,
+)
 from .utils import fetch_products_from_api
-from users.models import SponsorProfile, DriverProfile
+from users.models import SponsorProfile, DriverProfile, send_driver_notification
+from rewards.models import award_points_to_driver
 import requests
+
 
 # --------------------------
 # External products for sponsors
@@ -106,7 +115,6 @@ def view_catalogue(request, org_id):
     if query:
         items = items.filter(product_name__icontains=query)
 
-
     return render(request, "catalogue/view_catalogue.html", {
         "organization": organization,
         "catalogue": catalogue,
@@ -176,6 +184,9 @@ def toggle_item_status(request, org_id, item_id):
     return redirect("catalogue:view_catalogue", org_id=org_id)
 
 
+# --------------------------
+# CART VIEWS
+# --------------------------
 @login_required
 def view_cart(request):
     if not request.user.is_driver:
@@ -183,7 +194,6 @@ def view_cart(request):
         return redirect("home")
     
     cart_items = CartItem.objects.filter(user=request.user).select_related('catalogue_item')
-    
     total = sum(item.get_total_price() for item in cart_items)
     
     return render(request, "catalogue/cart.html", {
@@ -255,3 +265,155 @@ def update_cart_quantity(request, cart_item_id):
             messages.success(request, "Item removed from cart.")
     
     return redirect("catalogue:view_cart")
+
+
+# --------------------------
+# ORDER / CHECKOUT FLOWS
+# --------------------------
+
+@login_required
+def checkout_submit(request):
+    """
+    Turn current cart into an Order, deduct points, clear cart.
+    """
+    if not getattr(request.user, "is_driver", False):
+        messages.error(request, "Only drivers can place orders.")
+        return redirect("home")
+
+    driver = request.user
+    cart_items = CartItem.objects.filter(user=driver).select_related("catalogue_item")
+
+    if not cart_items.exists():
+        messages.error(request, "Your cart is empty.")
+        return redirect("catalogue:view_cart")
+
+    # assume all items are from same org catalogue
+    first_item = cart_items.first()
+    org = first_item.catalogue_item.catalogue.organization if first_item else None
+
+    with transaction.atomic():
+        order = Order.objects.create(
+            driver=driver,
+            organization=org,
+            status=Order.STATUS_PENDING,
+        )
+
+        total_points_cost = 0
+
+        # copy cart items into order items
+        for ci in cart_items:
+            item = ci.catalogue_item
+            line_cost = (item.price or 0) * ci.quantity
+            total_points_cost += line_cost
+
+            OrderItem.objects.create(
+                order=order,
+                catalogue_item=item,
+                product_name=item.product_name,
+                product_id=item.product_id,
+                price_each=item.price,
+                quantity=ci.quantity,
+            )
+
+        # deduct points using existing helper
+        if total_points_cost > 0:
+            ok, msg = award_points_to_driver(
+                sponsor_user=None,   # this is a redemption, not a sponsor gift
+                driver_user=driver,
+                points=-int(total_points_cost),
+                reason=f"Order #{order.id} redemption",
+            )
+            if not ok:
+                messages.error(request, f"Could not submit order: {msg}")
+                raise transaction.TransactionManagementError(msg)
+
+        # snapshot balance
+        driver.refresh_from_db()
+        order.balance_after_submit = driver.driverprofile.current_points
+        order.save(update_fields=["balance_after_submit"])
+
+        # clear cart
+        cart_items.delete()
+
+        # notify driver (uses their prefs)
+        send_driver_notification(
+            driver_user=driver,
+            content=f"Order #{order.id} submitted. Total cost {total_points_cost} points.",
+            notif_type="order_placed",
+            metadata_extra={"order_id": order.id},
+        )
+
+    messages.success(request, f"Order #{order.id} submitted!")
+    return redirect("catalogue:order_detail", order_id=order.id)
+
+
+@login_required
+def my_orders(request):
+    """
+    Show list of all orders for this driver.
+    """
+    if not getattr(request.user, "is_driver", False):
+        messages.error(request, "Only drivers can view orders.")
+        return redirect("home")
+
+    orders = (
+        Order.objects.filter(driver=request.user)
+        .order_by("-created_at")
+        .prefetch_related("items")
+    )
+
+    return render(request, "catalogue/my_orders.html", {"orders": orders})
+
+
+@login_required
+def order_detail(request, order_id):
+    """
+    Show one specific order and its items.
+    """
+    order = get_object_or_404(Order, id=order_id, driver=request.user)
+
+    return render(request, "catalogue/order_detail.html", {
+        "order": order,
+        "editable": order.is_editable,
+    })
+
+
+@login_required
+def cancel_order(request, order_id):
+    """
+    Cancel an order if still pending and refund points.
+    """
+    order = get_object_or_404(Order, id=order_id, driver=request.user)
+
+    if not order.is_editable:
+        messages.error(request, "This order can no longer be cancelled.")
+        return redirect("catalogue:order_detail", order_id=order.id)
+
+    refund_points = order.total_cost_points
+
+    with transaction.atomic():
+        # mark cancelled
+        order.status = Order.STATUS_CANCELLED
+        order.save(update_fields=["status"])
+
+        # refund points
+        if refund_points > 0:
+            ok, msg = award_points_to_driver(
+                sponsor_user=None,
+                driver_user=request.user,
+                points=int(refund_points),
+                reason=f"Refund for cancelled Order #{order.id}",
+            )
+            if not ok:
+                messages.error(request, f"Order cancelled but refund issue: {msg}")
+
+        # notify driver
+        send_driver_notification(
+            driver_user=request.user,
+            content=f"Order #{order.id} was cancelled. {refund_points} points refunded.",
+            notif_type="order_placed",  # could make a new notif_type later
+            metadata_extra={"order_id": order.id},
+        )
+
+    messages.success(request, f"Order #{order.id} cancelled and points refunded.")
+    return redirect("catalogue:my_orders")

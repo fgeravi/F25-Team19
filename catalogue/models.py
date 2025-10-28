@@ -89,3 +89,88 @@ class CartItem(models.Model):
         if self.catalogue_item.price:
             return self.catalogue_item.price * self.quantity
         return 0
+    
+class Order(models.Model):
+    STATUS_PENDING = "PENDING"
+    STATUS_CANCELLED = "CANCELLED"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_FULFILLED = "FULFILLED"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_CANCELLED, "Cancelled"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_FULFILLED, "Fulfilled"),
+    ]
+
+    driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="orders",
+    )
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.PROTECT,
+        related_name="orders",
+        null=True,
+        blank=True,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # store the driver's points balance AFTER submitting the order
+    balance_after_submit = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Order #{self.id} by {self.driver.username} ({self.status})"
+
+    @property
+    def is_editable(self):
+        return self.status == self.STATUS_PENDING
+
+    @property
+    def total_cost_points(self):
+        return sum(item.total_price_points for item in self.items.all())
+
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    catalogue_item = models.ForeignKey(
+        CatalogueItem,
+        on_delete=models.PROTECT,
+        related_name="ordered_as",
+    )
+
+    # snapshot fields so the order remembers what was requested at that time
+    product_name = models.CharField(max_length=255)
+    product_id = models.CharField(max_length=100)
+    price_each = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    quantity = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        ordering = ["order_id", "product_name"]
+
+    def __str__(self):
+        return f"{self.product_name} x{self.quantity} (Order #{self.order_id})"
+
+    @property
+    def total_price_points(self):
+        if self.price_each:
+            return self.price_each * self.quantity
+        return 0
