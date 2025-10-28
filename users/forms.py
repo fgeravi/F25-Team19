@@ -3,6 +3,7 @@
 from django import forms
 from django import forms
 from .models import DriverProfile
+from organizations.models import Organization
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.contrib.auth import get_user_model
@@ -144,4 +145,22 @@ class NotificationPreferenceForm(forms.ModelForm):
         widgets = {
             "notify_points_change": forms.CheckboxInput(attrs={"class": "form-check-input"}),
             "notify_order_placed": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+class OrganizationPointValueForm(forms.ModelForm):
+    class Meta:
+        model = Organization
+        fields = ["point_value_usd"]
+        labels = {
+            "point_value_usd": "Dollar value per 1 point",
+        }
+        help_texts = {
+            "point_value_usd": "Example: 0.02 means each point is worth two cents.",
+        }
+        widgets = {
+            "point_value_usd": forms.NumberInput(attrs={
+                "step": "0.0001",
+                "min": "0.0001",
+                "style": "width:8rem;"
+            })
         }

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Point Value Settings{% endblock %}
+
+{% block content %}
+<h1>Point Value Settings</h1>
+
+<p>
+  This controls how much each point is “worth” in dollars for <strong>{{ org.name }}</strong>.
+</p>
+
+<p style="font-size:0.9rem; color:#555; max-width:600px;">
+  This is ONLY for rewards math and display. It is not a cash promise, payroll, or tax thing.
+  Drivers will see approximate dollar values based on this.
+</p>
+
+<form method="post" style="margin-top:1rem; max-width:400px;">
+  {% csrf_token %}
+  <div style="margin-bottom:1rem;">
+    <label for="{{ form.point_value_usd.id_for_label }}" style="display:block; font-weight:600;">
+      {{ form.point_value_usd.label }}
+    </label>
+    {{ form.point_value_usd }}
+    {% if form.point_value_usd.help_text %}
+      <div style="font-size:0.8rem; color:#666;">{{ form.point_value_usd.help_text }}</div>
+    {% endif %}
+    {% if form.point_value_usd.errors %}
+      <div style="color:red;">{{ form.point_value_usd.errors }}</div>
+    {% endif %}
+  </div>
+
+  <button type="submit" style="
+      background:#007bff;
+      color:white;
+      border:none;
+      padding:0.6rem 1rem;
+      border-radius:4px;
+      cursor:pointer;">
+    Save Value
+  </button>
+</form>
+{% endblock %}

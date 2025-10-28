@@ -175,6 +175,40 @@ def manage_drivers_view(request):
     }
     return render(request, 'users/manage_drivers.html', context)
 
+@login_required
+def edit_point_value_view(request):
+    """
+    Sponsor can change how much 1 point is worth in dollars
+    for THEIR organization only.
+    """
+    # Must be a sponsor
+    if not getattr(request.user, "is_sponsor", False):
+        messages.error(request, "You do not have permission to edit point settings.")
+        return redirect("home")
+
+    # Get sponsor's org
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile or not sponsor_profile.organization:
+        messages.error(request, "You are not assigned to an organization.")
+        return redirect("home")
+
+    org = sponsor_profile.organization
+
+    from .forms import OrganizationPointValueForm
+    if request.method == "POST":
+        form = OrganizationPointValueForm(request.POST, instance=org)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Point value updated for your organization.")
+            return redirect("edit_point_value")
+    else:
+        form = OrganizationPointValueForm(instance=org)
+
+    return render(request, "users/sponsor/edit_point_value.html", {
+        "form": form,
+        "org": org,
+    })
+
 
 @login_required
 def edit_driver_view(request, driver_id):
