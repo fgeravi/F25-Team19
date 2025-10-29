@@ -16,6 +16,7 @@ from audit.models import PasswordChange
 from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization
 from django.contrib.admin.views.decorators import staff_member_required
 from .forms import DriverEditForm
+from django.db.models import Q
 
 
 @login_required
@@ -160,13 +161,25 @@ def manage_drivers_view(request):
         return redirect('home')
 
     try:
+        # Get sponsor profile
         sponsor_profile = request.user.sponsorprofile
+        # Get org from sponsor profile
         organization = sponsor_profile.organization
-        
+
+        # filtering and driver acquisition
+        search_query = request.GET.get('q', '')  # Get search input from ?q= in URL
+
         drivers = User.objects.filter(
             is_driver=True,
             driverprofile__organization=organization
         ).order_by('username')
+
+        if search_query:
+            drivers = drivers.filter(
+                Q(username__icontains=search_query) |
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query)
+            )
 
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
