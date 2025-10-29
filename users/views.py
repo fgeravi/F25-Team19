@@ -168,18 +168,26 @@ def manage_drivers_view(request):
 
         # filtering and driver acquisition
         search_query = request.GET.get('q', '')  # Get search input from ?q= in URL
+        status_query = request.GET.get('status', '') # query for status filtering
 
         drivers = User.objects.filter(
             is_driver=True,
             driverprofile__organization=organization
         ).order_by('username')
 
+        # Search query filtering
         if search_query:
             drivers = drivers.filter(
                 Q(username__icontains=search_query) |
                 Q(first_name__icontains=search_query) |
                 Q(last_name__icontains=search_query)
             )
+
+        # Status query 
+        if status_query == "active":
+            drivers = drivers.filter(is_active=True)
+        elif status_query == "inactive":
+            drivers = drivers.filter(is_active=False)
 
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
