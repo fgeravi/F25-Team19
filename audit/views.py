@@ -36,22 +36,29 @@ def _apply_filters(qs, form):
 def report_csv(request):
     form = ReportFilterForm(request.GET or None)
 
-    qs = DriverApplication.objects.all().select_related("organization", "driver")
+    qs = DriverApplication.objects.select_related("organization", "driver").all()
 
-    if request.user.has_perm("audit.can_download_reports"):
-        sponsor_org_id = getattr(getattr(request.user, "sponsorprofile", None), "organization_id", None)
-        if sponsor_org_id:
-            qs = qs.filter(organization_id=sponsor_org_id)
+    if request.user.is_staff:
+        role = "admin"
+
+    elif getattr(request.user, "is_sponsor", False):
+        sponsor_org_id = getattr(
+            getattr(request.user, "sponsorprofile", None),
+            "organization_id",
+            None,
+        )
+        if sponsor_org_id is None:
+            raise PermissionDenied("No organization associated with this sponsor.")
+        qs = qs.filter(organization_id=sponsor_org_id)
         role = "sponsor"
 
-    elif request.user.has_perm("audit.can_download_own_reports"):
+    elif getattr(request.user, "is_driver", False):
         qs = qs.filter(driver_id=request.user.id)
         role = "driver"
 
     else:
-        from django.core.exceptions import PermissionDenied
         raise PermissionDenied("You do not have access to download reports.")
-
+    
     qs = _apply_filters(qs, form)
 
     header = ["ID", "Driver", "Organization", "Status", "Created At", "Updated At", "Message"]
@@ -64,8 +71,12 @@ def report_csv(request):
                 getattr(a.organization, "name", ""),
                 a.status,
                 a.created_at.isoformat() if a.created_at else "",
-                a.updated_at.isoformat() if a.updated_at else "",
+                a.updated_at.isoformat() if getattr(a, "updated_at", None) else "",
                 (a.message or "").replace("\n", " ").strip(),
             ]
 
-    return stream_csv(daterange_filename(f"{role}_applications"), header, rows)
+    return stream_csv(
+        daterange_filename(f"{role}_applications"),
+        header,
+        rows,
+    )

@@ -255,8 +255,8 @@
           Notifications{% if unread_count %} ({{ unread_count }}){% endif %}
         </a> |
 
-        {% if perms.audit.can_download_own_reports or perms.audit.can_download_reports %}
-          <a href="{% url 'audit:report_csv' %}">Download CSV</a> |
+        {% if user.is_staff or user.is_driver or user.is_sponsor %}
+          <a href="{% url 'audit:report_csv' %}">Download Applications CSV</a> |
         {% endif %}
 
         <form action="{% url 'logout' %}" method="post" style="display:inline;">
