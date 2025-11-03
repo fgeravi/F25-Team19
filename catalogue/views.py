@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
+from django.urls import reverse  
 from organizations.models import Organization
 from .models import (
     Catalogue,
@@ -343,12 +344,17 @@ def checkout_submit(request):
         # clear cart
         cart_items.delete()
 
-        # notify driver (uses their prefs)
+        # >>> CHANGED: send a clear, linkable notification with the order number
+        order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
         send_driver_notification(
             driver_user=driver,
-            content=f"Order #{order.id} submitted. Total cost {total_points_cost} points.",
+            content=f"Your order #{order.id} has been placed.",
             notif_type="order_placed",
-            metadata_extra={"order_id": order.id},
+            metadata_extra={
+                "order_id": order.id,
+                "link": order_url,
+                "total_points": int(total_points_cost),
+            },
         )
 
     messages.success(request, f"Order #{order.id} submitted!")
@@ -415,12 +421,16 @@ def cancel_order(request, order_id):
             if not ok:
                 messages.error(request, f"Order cancelled but refund issue: {msg}")
 
-        # notify driver
+        order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
         send_driver_notification(
             driver_user=request.user,
             content=f"Order #{order.id} was cancelled. {refund_points} points refunded.",
-            notif_type="order_placed",  # could make a new notif_type later
-            metadata_extra={"order_id": order.id},
+            notif_type="order_cancelled",
+            metadata_extra={
+                "order_id": order.id,
+                "link": order_url,
+                "refunded_points": int(refund_points) if refund_points else 0,
+            },
         )
 
     messages.success(request, f"Order #{order.id} cancelled and points refunded.")

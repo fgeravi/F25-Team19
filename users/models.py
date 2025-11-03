@@ -10,8 +10,6 @@ from django.dispatch import receiver
 from organizations.models import Organization
 from .config import LockoutConfig
 from notifications.models import Notification
-from django.contrib.auth.models import AbstractUser
-
 
 
 # ----------------------
@@ -78,7 +76,9 @@ class SponsorWelcome(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Welcome message for {self.sponsor_org.name}"
+        # guard against null org names
+        name = getattr(self.sponsor_org, "name", "Unknown Org")
+        return f"Welcome message for {name}"
 
 
 class DriverNotification(models.Model):
@@ -138,11 +138,11 @@ def ensure_org_welcome(sender, instance, created, **kwargs):
 def auto_send_driver_welcome(sender, instance, created, **kwargs):
     if created and instance.user and is_driver(instance.user):
         send_driver_notification(
-        driver_user=instance.user,
-        content=current_welcome_message(instance.organization),
-        notif_type="welcome",
-        metadata_extra={},
-)
+            driver_user=instance.user,
+            content=current_welcome_message(instance.organization),
+            notif_type="welcome",
+            metadata_extra={},
+        )
 
 
 # ----------------------
@@ -236,6 +236,7 @@ class FailedLoginAttempt(models.Model):
     def __str__(self):
         return f"FailedLoginAttempt<{self.id}> for '{self.username}' at {self.created_at}"
 
+
 class DriverChangeAudit(models.Model):
     sponsor = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -262,7 +263,6 @@ class DriverChangeAudit(models.Model):
 
 
 # Password Audit Events
-
 class PasswordEvent(models.Model):
     EVENT_CHANGE = "password_change"
     EVENT_RESET_REQUESTED = "password_reset_requested"
@@ -299,7 +299,8 @@ class PasswordEvent(models.Model):
     def __str__(self):
         who = self.user.username if self.user else (self.username or "unknown")
         return f"{self.event_type} for {who} at {self.created_at}"
-    
+
+
 def send_driver_notification(driver_user, content, notif_type, metadata_extra=None):
     """
     Central place to send a driver notification with respect to their preferences.
@@ -308,9 +309,9 @@ def send_driver_notification(driver_user, content, notif_type, metadata_extra=No
     - "dropped"                (cannot be disabled)
     - "points_change"          (can be disabled by driver)
     - "order_placed"           (can be disabled by driver)
+    - "order_cancelled"        (uses the same preference as order_placed)
     - "welcome"                (welcome message, send unconditionally is fine)
     """
-
     if not driver_user or not getattr(driver_user, "is_driver", False):
         return  # not a driver, skip
 
@@ -324,7 +325,7 @@ def send_driver_notification(driver_user, content, notif_type, metadata_extra=No
         allow = True  # cannot be disabled
     elif notif_type == "points_change":
         allow = profile.notify_points_change if profile else True
-    elif notif_type == "order_placed":
+    elif notif_type in ("order_placed", "order_cancelled"):
         allow = profile.notify_order_placed if profile else True
     else:
         # default safe behavior: send
@@ -334,7 +335,7 @@ def send_driver_notification(driver_user, content, notif_type, metadata_extra=No
         return
 
     Notification.objects.create(
-    user=driver_user,
-    message=content,
-    link=metadata_extra.get("link", "") if metadata_extra else "",
-)
+        user=driver_user,
+        message=content,
+        link=(metadata_extra or {}).get("link", ""),
+    )
