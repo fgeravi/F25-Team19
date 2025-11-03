@@ -115,11 +115,19 @@ def view_catalogue(request, org_id):
     if query:
         items = items.filter(product_name__icontains=query)
 
+    # Sorting
+    sort = request.GET.get("sort")
+    if sort == "low_to_high":
+        items = items.order_by("price")
+    elif sort == "high_to_low":
+        items = items.order_by("-price")
+
     return render(request, "catalogue/view_catalogue.html", {
         "organization": organization,
         "catalogue": catalogue,
         "items": items,
         "user": user,
+        "sort": sort,
     })
 
 
