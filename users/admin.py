@@ -14,6 +14,8 @@ from audit.models import PasswordChange
 from django.urls import path
 from django.shortcuts import render
 from users.views import admin_import_users_view
+from django.http import HttpResponse
+import csv
 
 # Set custom login form for admin
 admin.site.login_form = LockedOutAdminAuthenticationForm
@@ -306,11 +308,41 @@ class PasswordChangeAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+    
+@admin.action(description="Download all sponsors as CSV")
+def export_sponsors_csv(modeladmin, request, queryset):
+    """
+    Export selected SponsorProfiles as a CSV file.
+    """
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="sponsors.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['Username', 'First Name', 'Last Name', 'Email', 'Organization Name'])
+
+    for sponsor in queryset:
+        user = sponsor.user
+        writer.writerow([
+            user.username,
+            user.first_name,
+            user.last_name,
+            user.email,
+            sponsor.organization.name if sponsor.organization else '',
+        ])
+
+    return response
+
+@admin.register(SponsorProfile)
+class SponsorProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'organization')
+    search_fields = ('user__username', 'user__email', 'organization__name')
+    actions = [export_sponsors_csv]
+
 
 
 # --------------------------
 # Register main models
 # --------------------------
 admin.site.register(User, UserAdmin)
-admin.site.register(SponsorProfile)
+# admin.site.register(SponsorProfile)
 admin.site.register(DriverProfile)
