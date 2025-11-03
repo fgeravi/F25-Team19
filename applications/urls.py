@@ -13,4 +13,7 @@ urlpatterns = [
 
     # Driver view own applications
     path("my-applications/", views.driver_applications_list, name="driver_applications_list"),
+
+    # CSV download
+    path("applications/download-csv/", views.export_applications_csv, name="export_applications_csv"),
 ]

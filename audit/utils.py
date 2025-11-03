@@ -8,10 +8,11 @@ class Echo:
 def stream_csv(filename, header, row_iterable):
     pseudo = Echo()
     writer = csv.writer(pseudo)
+    def _iter_rows():
+        return row_iterable() if callable(row_iterable) else row_iterable
 
     def gen():
-        yield writer.writerow(header)
-        for row in row_iterable:
+        for row in _iter_rows():
             yield writer.writerow(row)
 
     resp = StreamingHttpResponse(gen(), content_type="text/csv")
