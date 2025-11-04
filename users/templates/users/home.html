@@ -74,6 +74,12 @@
       </a>
     </div>
 
+    {% if user.is_driver %}
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'view_sponsors_list' %}">My Sponsors</a>
+    </li>
+    {% endif %}
+
     {% if driver_sponsorships %}
       <h3>Your Approved Sponsors</h3>
       <ul class="list-group mb-3">

@@ -539,7 +539,34 @@ def export_drivers_csv(request):
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
         return redirect('home')
+    
 
+@login_required
+def view_sponsors_list(request):
+    if not request.user.is_driver:
+        messages.error(request, "You do not have permission to view this page.")
+        return redirect('home')
+
+    try:
+        driver_profile = request.user.driverprofile
+        driver_organization = driver_profile.organization
+
+        if not driver_organization:
+            messages.warning(request, "You are not currently associated with an organization.")
+            sponsors = []
+        else:
+            sponsors = SponsorProfile.objects.filter(
+                organization=driver_organization
+            ).select_related('user').order_by('user__last_name', 'user__first_name')
+
+    except DriverProfile.DoesNotExist:
+        messages.error(request, "Your driver profile could not be found.")
+        return redirect('home')
+
+    context = {
+        'sponsors': sponsors
+    }
+    return render(request, 'users/view_sponsors.html', context)
 
 @staff_member_required
 def admin_import_users_view(request):

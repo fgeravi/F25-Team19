@@ -38,6 +38,7 @@ urlpatterns = [
 
     # --- Account Management ---
     path("account/", account_management, name="account_management"),
+    path('sponsors/', views.view_sponsors_list, name='view_sponsors_list'),
 
     # --- Sponsor Management ---
     path("manage-drivers/", views.manage_drivers_view, name="manage_drivers"),
