@@ -74,14 +74,20 @@
       </a>
     </div>
 
-    {% if user.driverprofile.organization %}
-      <div class="mb-2">
-        <a href="{% url 'catalogue:view_catalogue' user.driverprofile.organization.id %}" class="btn btn-success ms-2">
-            <i class="bi bi-shop"></i> Browse My Organization Catalogue
-        </a>
-      </div>
+    {% if driver_sponsorships %}
+      <h3>Your Approved Sponsors</h3>
+      <ul class="list-group mb-3">
+        {% for ds in driver_sponsorships %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ ds.sponsor.company_name }} ({{ ds.points }} points)
+            <a href="{% url 'catalogue:view_catalogue' ds.sponsor.organization.id %}" class="btn btn-sm btn-outline-primary">
+              Browse Catalogue
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
     {% else %}
-      <p class="text-warning">You don't currently belong to an organization.</p>
+      <p class="text-warning">You don't currently have any approved sponsors.</p>
     {% endif %}
   {% endif %}
 

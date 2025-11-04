@@ -339,3 +339,27 @@ def send_driver_notification(driver_user, content, notif_type, metadata_extra=No
         message=content,
         link=(metadata_extra or {}).get("link", ""),
     )
+
+# --------------------------------
+# SponsorDriver relationship model
+# --------------------------------
+class DriverSponsor(models.Model):
+    driver = models.ForeignKey(
+        "DriverProfile",
+        on_delete=models.CASCADE,
+        related_name="sponsorships"
+    )
+    sponsor = models.ForeignKey(
+        "SponsorProfile",
+        on_delete=models.CASCADE,
+        related_name="drivers"
+    )
+    approved = models.BooleanField(default=False)
+    points = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("driver", "sponsor")
+
+    def __str__(self):
+        return f"{self.driver.user.username} ↔ {self.sponsor.company_name}"
