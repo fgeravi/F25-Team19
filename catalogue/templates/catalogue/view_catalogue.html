@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}{{ organization.name }} Catalogue{% endblock %}
+{% block title %}{{ sponsor.user.username }} Catalogue{% endblock %}
 
 {% block content %}
-<h2>{{ organization.name }} Catalogue</h2>
+<h2>{{ sponsor.user.username }} Catalogue</h2>
 
 {% if user.is_driver %}
     <div style="margin-bottom: 1rem;">
@@ -13,9 +13,9 @@
     </div>
 {% endif %}
 
-{% if user.is_sponsor %}
+{% if user.is_sponsor and user == sponsor.user %}
     <div style="margin-bottom: 1rem;">
-        <a href="{% url 'catalogue:external_products' organization.id %}" class="btn btn-primary">
+        <a href="{% url 'catalogue:external_products' sponsor.id %}" class="btn btn-primary">
             Add Products from External Source
         </a>
     </div>
@@ -47,13 +47,13 @@
         </button>
 
         {% if request.GET.q or request.GET.sort %}
-            <a href="{% url 'catalogue:view_catalogue' organization.id %}" style="padding: 6px 12px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
+            <a href="{% url 'catalogue:view_catalogue' sponsor.id %}" style="padding: 6px 12px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 4px;">
                 Reset
             </a>
         {% endif %}
     </form>
 
-    <!-- 🛍️ Catalogue Grid -->
+    <!-- Catalogue Grid -->
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1rem;">
         {% for item in items %}
             <div style="border: 1px solid #ddd; border-radius: 8px; padding: 10px; {% if not item.is_active %}opacity: 0.6; background-color: #f5f5f5;{% endif %}">
@@ -76,15 +76,15 @@
                     </form>
                 {% endif %}
 
-                {% if user.is_sponsor %}
+                {% if user.is_sponsor and user == sponsor.user %}
                     <div style="margin-top: 0.5rem; display: flex; gap: 5px;">
-                        <form method="post" action="{% url 'catalogue:toggle_item_status' organization.id item.id %}" style="flex: 1;">
+                        <form method="post" action="{% url 'catalogue:toggle_item_status' sponsor.id item.id %}" style="flex: 1;">
                             {% csrf_token %}
                             <button type="submit" style="width: 100%; padding: 8px; background-color: {% if item.is_active %}#ffc107{% else %}#28a745{% endif %}; color: {% if item.is_active %}#000{% else %}#fff{% endif %}; border: none; border-radius: 4px; cursor: pointer;">
                                 {% if item.is_active %}Disable{% else %}Enable{% endif %}
                             </button>
                         </form>
-                        <form method="post" action="{% url 'catalogue:delete_catalogue_item' organization.id item.id %}" style="flex: 1;">
+                        <form method="post" action="{% url 'catalogue:delete_catalogue_item' sponsor.id item.id %}">
                             {% csrf_token %}
                             <button type="submit" style="width: 100%; padding: 8px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="return confirm('Are you sure you want to remove this product?')">
                                 Delete

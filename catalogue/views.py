@@ -20,17 +20,16 @@ import requests
 # External products for sponsors
 # --------------------------
 @login_required
-def external_products(request, org_id):
-    organization = get_object_or_404(Organization, id=org_id)
+def external_products(request, sponsor_id):
+    """
+    Show external products that a sponsor can add to their catalogue.
+    Only the sponsor themselves can view this page.
+    """
+    sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
 
-    # Only the sponsor of this org can view
-    try:
-        sponsor_profile = SponsorProfile.objects.get(organization=organization)
-        if request.user != sponsor_profile.user:
-            messages.error(request, "You are not authorized to view this page.")
-            return render(request, "catalogue/forbidden.html")
-    except SponsorProfile.DoesNotExist:
-        messages.error(request, "This organization has no assigned sponsor.")
+    # Check that the logged-in user is the sponsor
+    if request.user != sponsor.user:
+        messages.error(request, "You are not authorized to view this page.")
         return render(request, "catalogue/forbidden.html")
 
     # Fetch external products
@@ -41,38 +40,34 @@ def external_products(request, org_id):
         products = []
 
     return render(request, "catalogue/external_products.html", {
-        "organization": organization,
+        "sponsor": sponsor,
         "products": products,
     })
 
 
-# --------------------------
-# Add product to org's catalogue
-# --------------------------
 @login_required
-def add_product_to_catalogue(request, org_id, product_id):
-    organization = get_object_or_404(Organization, id=org_id)
+def add_product_to_catalogue(request, sponsor_id, product_id):
+    """
+    Add a product to the sponsor's personal catalogue.
+    """
+    sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
 
-    # Only sponsor can add products
-    try:
-        sponsor_profile = SponsorProfile.objects.get(organization=organization)
-        if request.user != sponsor_profile.user:
-            messages.error(request, "You are not authorized to add products.")
-            return redirect("catalogue:view_catalogue", org_id=org_id)
-    except SponsorProfile.DoesNotExist:
-        messages.error(request, "This organization has no assigned sponsor.")
-        return redirect("catalogue:view_catalogue", org_id=org_id)
+    # Only allow the sponsor themselves
+    if request.user != sponsor.user:
+        messages.error(request, "You are not authorized to add products to this catalogue.")
+        return redirect("catalogue:external_products", sponsor_id=sponsor_id)
 
-    # Get or create catalogue
+    # Get or create the sponsor's catalogue
     catalogue, _ = Catalogue.objects.get_or_create(
-        organization=organization, name="Default Catalogue"
+        sponsor=sponsor,
+        name="Default Catalogue"
     )
 
     # Fetch product from external API
     response = requests.get(f"https://api.escuelajs.co/api/v1/products/{product_id}")
     if response.status_code != 200:
-        messages.error(request, "Failed to fetch product from external API.")
-        return redirect("catalogue:external_products", org_id=org_id)
+        messages.error(request, "Failed to fetch product from the external API.")
+        return redirect("catalogue:external_products", sponsor_id=sponsor_id)
 
     product_data = response.json()
 
@@ -88,29 +83,34 @@ def add_product_to_catalogue(request, org_id, product_id):
         }
     )
 
-    messages.success(request, f"{product_data['title']} added to catalogue.")
-    return redirect("catalogue:view_catalogue", org_id=org_id)
+    messages.success(request, f"{product_data['title']} added to your catalogue.")
+    return redirect("catalogue:view_catalogue", sponsor_id=sponsor_id)
 
 
 # --------------------------
 # View catalogue
 # --------------------------
 @login_required
-def view_catalogue(request, org_id):
-
-    organization = get_object_or_404(Organization, id=org_id)
+def view_catalogue(request, sponsor_id):
+    """
+    View a sponsor-specific catalogue.
+    """
+    sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
     user = request.user
 
+    # Get or create the sponsor's catalogue
     catalogue, _ = Catalogue.objects.get_or_create(
-        organization=organization,
+        sponsor=sponsor,
         name="Default Catalogue"
     )
 
-    if user.is_sponsor:
+    # Only show active items to drivers
+    if user.is_sponsor and user == sponsor.user:
         items = catalogue.items.all()
     else:
         items = catalogue.items.filter(is_active=True)
 
+    # Search
     query = request.GET.get("q")
     if query:
         items = items.filter(product_name__icontains=query)
@@ -123,7 +123,7 @@ def view_catalogue(request, org_id):
         items = items.order_by("-price")
 
     return render(request, "catalogue/view_catalogue.html", {
-        "organization": organization,
+        "sponsor": sponsor,
         "catalogue": catalogue,
         "items": items,
         "user": user,
@@ -131,65 +131,64 @@ def view_catalogue(request, org_id):
     })
 
 
+
 # ---------------------------------------
 # Delete product from catalogue (sponsor)
 # ---------------------------------------
 @login_required
-def delete_product(request, org_id, item_id):
-    organization = get_object_or_404(Organization, id=org_id)
-
+def delete_product(request, sponsor_id, item_id):
     # Only allow sponsors to delete
     if not request.user.is_sponsor:
         messages.error(request, "You do not have permission to delete items.")
-        return redirect("catalogue:view_catalogue", org_id=org_id)
+        return redirect("home")
 
-    # Safely get sponsor profile
-    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
 
-    # Verify sponsor belongs to this organization
-    if not sponsor_profile or sponsor_profile.organization != organization:
-        messages.error(request, "You cannot delete items from another organization's catalogue.")
-        return redirect("catalogue:view_catalogue", org_id=org_id)
+    # Ensure the sponsor owns this catalogue
+    if request.user != sponsor.user:
+        messages.error(request, "You cannot delete items from another sponsor's catalogue.")
+        return redirect("catalogue:view_catalogue", sponsor_id=sponsor.id)
 
-    # Get the catalogue item within this org
+    # Get the catalogue item
     item = get_object_or_404(
         CatalogueItem,
         id=item_id,
-        catalogue__organization=organization
+        catalogue__sponsor=sponsor
     )
 
-    # Delete it
     item.delete()
     messages.success(request, f"'{item.product_name}' was removed from the catalogue.")
-    return redirect("catalogue:view_catalogue", org_id=org_id)
+    return redirect("catalogue:view_catalogue", sponsor_id=sponsor.id)
 
 
 @login_required
-def toggle_item_status(request, org_id, item_id):
-    organization = get_object_or_404(Organization, id=org_id)
-
+def toggle_item_status(request, sponsor_id, item_id):
+    # Only allow sponsors to modify
     if not request.user.is_sponsor:
         messages.error(request, "You do not have permission to modify items.")
-        return redirect("catalogue:view_catalogue", org_id=org_id)
+        return redirect("home")
 
-    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
 
-    if not sponsor_profile or sponsor_profile.organization != organization:
-        messages.error(request, "You cannot modify items from another organization's catalogue.")
-        return redirect("catalogue:view_catalogue", org_id=org_id)
+    # Ensure the sponsor owns this catalogue
+    if request.user != sponsor.user:
+        messages.error(request, "You cannot modify items from another sponsor's catalogue.")
+        return redirect("catalogue:view_catalogue", sponsor_id=sponsor.id)
 
+    # Get the catalogue item
     item = get_object_or_404(
         CatalogueItem,
         id=item_id,
-        catalogue__organization=organization
+        catalogue__sponsor=sponsor
     )
 
     item.is_active = not item.is_active
     item.save()
-    
+
     status = "enabled" if item.is_active else "disabled"
     messages.success(request, f"'{item.product_name}' has been {status}.")
-    return redirect("catalogue:view_catalogue", org_id=org_id)
+    return redirect("catalogue:view_catalogue", sponsor_id=sponsor.id)
+
 
 
 # --------------------------

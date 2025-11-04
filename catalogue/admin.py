@@ -40,9 +40,9 @@ class SponsorFilter(admin.SimpleListFilter):
 
 @admin.register(Catalogue)
 class CatalogueAdmin(admin.ModelAdmin):
-    list_display = ['name', 'organization', 'created_at', 'updated_at']
-    list_filter = [SponsorFilter, 'organization', 'created_at']
-    search_fields = ['name', 'organization__name']
+    list_display = ['name', 'sponsor', 'created_at', 'updated_at']
+    list_filter = [SponsorFilter, 'sponsor', 'created_at']
+    search_fields = ['name', 'sponsor__user__username']
     readonly_fields = ['created_at', 'updated_at']
 
 
