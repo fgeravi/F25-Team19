@@ -18,12 +18,24 @@ def point_dashboard(request):
     if not request.user.is_driver:
         return redirect('home')
 
+    search_query = request.GET.get('q', '')
+    sort_order = request.GET.get('sort', '-date')  
+
+    valid_sort_orders = ['date', '-date', 'point_change_amt', '-point_change_amt']
+    if sort_order not in valid_sort_orders:
+        sort_order = '-date' 
     try:
         driver_profile = request.user.driverprofile
         current_balance = driver_profile.current_points
-        transactions = PointChangeAudit.objects.filter(driver=request.user)
-        seven_days_ago = timezone.now() - timedelta(days=7)
 
+        transactions = PointChangeAudit.objects.filter(driver=request.user)
+
+        if search_query:
+            transactions = transactions.filter(reason__icontains=search_query)
+
+        transactions = transactions.order_by(sort_order)
+
+        seven_days_ago = timezone.now() - timedelta(days=7)
         weekly_earnings = PointChangeAudit.objects.filter(
             driver=request.user,
             date__gte=seven_days_ago,
@@ -39,6 +51,8 @@ def point_dashboard(request):
         'current_balance': current_balance,
         'transactions': transactions,
         'weekly_earnings': weekly_earnings,
+        'search_query': search_query, 
+        'sort_order': sort_order,      
     }
     return render(request, 'rewards/dashboard.html', context)
 
