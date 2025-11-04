@@ -193,5 +193,31 @@ class DriverCreationForm(forms.ModelForm):
                 DriverProfile.objects.create(user=user, organization=organization)
         return user
     
+class SponsorCreationForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput, label="Temporary Password")
+    password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Temporary Password")
+
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email')
+
+    def clean_password2(self):
+        password = self.cleaned_data.get("password")
+        password2 = self.cleaned_data.get("password2")
+        if password and password2 and password != password2:
+            raise forms.ValidationError("The two temporary passwords do not match.")
+        return password2
+
+    def save(self, commit=True, organization=None):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        user.is_sponsor = True
+
+        if commit:
+            user.save()
+            if organization:
+                SponsorProfile.objects.create(user=user, organization=organization)
+        return user
+    
 class DriverImportForm(forms.Form):
     file = forms.FileField(label="Select a pipe-delimited text file (.txt)")

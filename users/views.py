@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
-from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm, DriverImportForm
+from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm, DriverImportForm, SponsorCreationForm
 from .forms import LockedOutAuthenticationForm
 from .forms import NotificationPreferenceForm
 from django.contrib.auth.decorators import login_required
@@ -168,13 +168,14 @@ def manage_drivers_view(request):
 
     try:
         sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
 
         # filtering inputs
         search_query = request.GET.get('q', '')
         status_query = request.GET.get('status', '')
 
         drivers = DriverSponsor.objects.filter(
-            sponsor=sponsor_profile,
+            driver__organization=sponsor_organization,
             approved=True
         ).select_related('driver__user')
 
@@ -353,6 +354,36 @@ def add_driver_view(request):
         'form': form
     }
     return render(request, 'users/add_driver.html', context)
+
+@login_required
+def add_sponsor_view(request):
+    if not getattr(request.user, "is_sponsor", False):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    try:
+        sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = SponsorCreationForm(request.POST)
+        if form.is_valid():
+            new_sponsor_user = form.save(organization=sponsor_organization)
+
+            messages.success(request, f"New sponsor user '{new_sponsor_user.username}' has been added successfully.")
+            return redirect('manage_drivers')
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = SponsorCreationForm()
+
+    context = {
+        'form': form
+    }
+    return render(request, 'users/add_sponsor.html', context)
 
 
 
