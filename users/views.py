@@ -13,7 +13,7 @@ from django.urls import reverse_lazy
 from django.utils.crypto import get_random_string
 from django.utils import timezone
 from audit.models import PasswordChange
-from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization
+from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization, DriverSponsor
 from django.contrib.admin.views.decorators import staff_member_required
 from .forms import DriverEditForm
 from django.db.models import Q
@@ -167,33 +167,30 @@ def manage_drivers_view(request):
         return redirect('home')
 
     try:
-        # Get sponsor profile
         sponsor_profile = request.user.sponsorprofile
-        # Get org from sponsor profile
-        organization = sponsor_profile.organization
 
-        # filtering and driver acquisition
-        search_query = request.GET.get('q', '')  # Get search input from ?q= in URL
-        status_query = request.GET.get('status', '') # query for status filtering
+        # filtering inputs
+        search_query = request.GET.get('q', '')
+        status_query = request.GET.get('status', '')
 
-        drivers = User.objects.filter(
-            is_driver=True,
-            driverprofile__organization=organization
-        ).order_by('username')
+        drivers = DriverSponsor.objects.filter(
+            sponsor=sponsor_profile,
+            approved=True
+        ).select_related('driver__user')
 
-        # Search query filtering
+        # search filter
         if search_query:
             drivers = drivers.filter(
-                Q(username__icontains=search_query) |
-                Q(first_name__icontains=search_query) |
-                Q(last_name__icontains=search_query)
+                Q(driver__user__username__icontains=search_query) |
+                Q(driver__user__first_name__icontains=search_query) |
+                Q(driver__user__last_name__icontains=search_query)
             )
 
-        # Status query 
+        # status filter
         if status_query == "active":
-            drivers = drivers.filter(is_active=True)
+            drivers = drivers.filter(driver__user__is_active=True)
         elif status_query == "inactive":
-            drivers = drivers.filter(is_active=False)
+            drivers = drivers.filter(driver__user__is_active=False)
 
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
@@ -241,16 +238,30 @@ def edit_point_value_view(request):
 
 @login_required
 def edit_driver_view(request, driver_id):
-    if not request.user.is_sponsor:
+    # Only sponsors can access this view
+    if not getattr(request.user, "is_sponsor", False):
         messages.error(request, "You do not have permission to perform this action.")
         return redirect('home')
 
-    driver_user = get_object_or_404(User, id=driver_id, is_driver=True)
+    try:
+        sponsor_profile = request.user.sponsorprofile
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Sponsor profile not found.")
+        return redirect('home')
+
+    # Ensure the driver is approved under this sponsor
+    driver_sponsor = get_object_or_404(
+        DriverSponsor,
+        driver__user__id=driver_id,
+        sponsor=sponsor_profile,
+        approved=True
+    )
+    driver_user = driver_sponsor.driver.user
 
     if request.method == 'POST':
         form = DriverEditForm(request.POST, instance=driver_user)
         if form.is_valid():
-            # Story 461: Log changes before saving
+            # Log changes before saving
             for field in form.changed_data:
                 DriverChangeAudit.objects.create(
                     sponsor=request.user,
@@ -263,6 +274,8 @@ def edit_driver_view(request, driver_id):
             form.save()
             messages.success(request, f"Successfully updated profile for {driver_user.username}.")
             return redirect('manage_drivers')
+        else:
+            messages.error(request, "Please correct the errors below.")
     else:
         form = DriverEditForm(instance=driver_user)
 
@@ -271,6 +284,7 @@ def edit_driver_view(request, driver_id):
         'driver_user': driver_user
     }
     return render(request, 'users/edit_driver.html', context)
+
 
 @login_required
 def notification_preferences(request):
@@ -303,12 +317,13 @@ def notification_preferences(request):
 
 @login_required
 def add_driver_view(request):
-    if not request.user.is_sponsor:
+    if not getattr(request.user, "is_sponsor", False):
         messages.error(request, "You do not have permission to perform this action.")
         return redirect('home')
 
     try:
-        sponsor_organization = request.user.sponsorprofile.organization
+        sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
         return redirect('home')
@@ -316,9 +331,21 @@ def add_driver_view(request):
     if request.method == 'POST':
         form = DriverCreationForm(request.POST)
         if form.is_valid():
-            form.save(organization=sponsor_organization)
-            messages.success(request, "New driver has been added successfully.")
+            # Save the driver
+            new_driver_user = form.save(organization=sponsor_organization)
+
+            # Create a DriverSponsor relationship (approved by default)
+            from .models import DriverSponsor
+            DriverSponsor.objects.create(
+                driver=new_driver_user.driverprofile,
+                sponsor=sponsor_profile,
+                approved=True
+            )
+
+            messages.success(request, f"New driver '{new_driver_user.username}' has been added successfully.")
             return redirect('manage_drivers')
+        else:
+            messages.error(request, "Please correct the errors below.")
     else:
         form = DriverCreationForm()
 
@@ -330,14 +357,16 @@ def add_driver_view(request):
 
 
 
+
 @login_required
 def import_drivers_view(request):
-    if not request.user.is_sponsor:
+    if not getattr(request.user, "is_sponsor", False):
         messages.error(request, "You do not have permission to perform this action.")
         return redirect('home')
 
     try:
-        sponsor_organization = request.user.sponsorprofile.organization
+        sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
         return redirect('home')
@@ -349,7 +378,7 @@ def import_drivers_view(request):
         form = DriverImportForm(request.POST, request.FILES)
         if form.is_valid():
             uploaded_file = request.FILES['file']
-            
+
             try:
                 lines = uploaded_file.read().decode('utf-8').splitlines()
 
@@ -359,23 +388,29 @@ def import_drivers_view(request):
                         parts = line.strip().split('|')
 
                         if len(parts) != 5:
-                            error_messages.append(f"Line {line_num}: Invalid format. Must be 5 values per line (e.g., D||FirstName|LastName|Email).")
+                            error_messages.append(
+                                f"Line {line_num}: Invalid format. Must be 5 values per line (e.g., D||FirstName|LastName|Email)."
+                            )
                             continue
-                        
+
                         user_type, _, first_name, last_name, email = parts
 
                         if user_type not in ['D', 'S']:
                             error_messages.append(f"Line {line_num}: Invalid user type '{user_type}'.")
                             continue
                         if not all([first_name, last_name, email]):
-                            error_messages.append(f"Line {line_num}: First name, last name, and email are required.")
+                            error_messages.append(
+                                f"Line {line_num}: First name, last name, and email are required."
+                            )
                             continue
                         if User.objects.filter(email=email).exists():
-                            error_messages.append(f"Line {line_num}: User with email '{email}' already exists.")
+                            error_messages.append(
+                                f"Line {line_num}: User with email '{email}' already exists."
+                            )
                             continue
 
                         temp_password = get_random_string(10)
-                        
+
                         user = User.objects.create_user(
                             username=email,
                             email=email,
@@ -386,18 +421,30 @@ def import_drivers_view(request):
 
                         if user_type == 'D':
                             user.is_driver = True
-                            DriverProfile.objects.create(user=user, organization=sponsor_organization)
+                            driver_profile = DriverProfile.objects.create(
+                                user=user, organization=sponsor_organization
+                            )
+
+                            # Automatically create a DriverSponsor relationship
+                            from .models import DriverSponsor
+                            DriverSponsor.objects.create(
+                                driver=driver_profile,
+                                sponsor=sponsor_profile,
+                                approved=True
+                            )
+
                         elif user_type == 'S':
                             user.is_sponsor = True
                             SponsorProfile.objects.create(user=user, organization=sponsor_organization)
-                        
+
                         user.save()
-                        
-                        success_messages.append(f"Successfully created user for {email}. Temporary password: {temp_password}")
+                        success_messages.append(
+                            f"Successfully created user for {email}. Temporary password: {temp_password}"
+                        )
 
                     except Exception as e:
                         error_messages.append(f"Line {line_num}: An unexpected error occurred - {e}")
-            
+
             except Exception as e:
                 messages.error(request, f"Could not read the uploaded file. Error: {e}")
 
@@ -410,6 +457,7 @@ def import_drivers_view(request):
         'success_messages': success_messages,
     }
     return render(request, 'users/import_drivers.html', context)
+
 
 
 @staff_member_required

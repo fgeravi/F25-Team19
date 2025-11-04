@@ -8,6 +8,7 @@ from .models import (
     DriverProfile,
     FailedLoginAttempt,
     DriverChangeAudit,
+    DriverSponsor,
 )
 from .config import LockoutConfig
 from audit.models import PasswordChange
@@ -337,6 +338,12 @@ class SponsorProfileAdmin(admin.ModelAdmin):
     list_display = ('user', 'organization')
     search_fields = ('user__username', 'user__email', 'organization__name')
     actions = [export_sponsors_csv]
+
+@admin.register(DriverSponsor)
+class DriverSponsorAdmin(admin.ModelAdmin):
+    list_display = ('driver', 'sponsor', 'approved', 'created_at')
+    list_filter = ('approved', 'sponsor')
+    search_fields = ('driver__user__username', 'sponsor__user__username')
 
 
 

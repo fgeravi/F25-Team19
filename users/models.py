@@ -39,7 +39,7 @@ class SponsorProfile(models.Model):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
 
     def __str__(self):
-        return f"Sponsor: {self.company_name}"
+        return f"{self.user.username} ({self.organization.name})"
 
 
 class DriverProfile(models.Model):
