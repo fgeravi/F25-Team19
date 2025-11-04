@@ -2,20 +2,16 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-
 <div style="max-width:400px; margin:4rem auto; text-align:center;">
-
   <h1>Login</h1>
 
-  <form method="post" style="text-align:left; margin-top:1rem;">
+  <form method="post" style="text-align:left; margin-top:1rem;" novalidate>
     {% csrf_token %}
     {{ form.non_field_errors }}
 
-    {% if form.non_field_errors %}
+    {% if message %}
       <div class="alert alert-danger" role="alert" style="color:#b00020; background:#ffdada; padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem;">
-        {% for error in form.non_field_errors %}
-          <p style="margin:0;">{{ error }}</p>
-        {% endfor %}
+        {{ message }}
       </div>
     {% endif %}
 
@@ -38,43 +34,15 @@
       <label for="{{ form.remember_me.id_for_label }}">Remember me</label>
     </div>
 
-  <!-- templates/users/registration/login.html -->
-<form method="post" novalidate>
-  {% csrf_token %}
-
-  <!-- If you render fields manually, keep your existing username/password inputs -->
-  <!-- If you render {{ form.as_p }} or similar, you can keep it and just add the checkbox below -->
-
-  <div class="form-check my-2">
-    {{ form.remember_me }}
-    <label class="form-check-label" for="{{ form.remember_me.id_for_label }}">
-      Remember me
-    </label>
-  </div>
-
-  <button type="submit" class="btn btn-primary w-100">Sign in</button>
-
-  {% if message %}
-    <div class="alert alert-danger mt-2">{{ message }}</div>
-  {% endif %}
-</form>
-
-    <button type="submit" style="
-      background:#007bff;
-      color:white;
-      border:none;
-      padding:0.6rem 1rem;
-      border-radius:4px;
-      cursor:pointer;
-      width:100%;
-      font-size:1rem;
-      font-weight:600;">
-      Log in
-    </button>
-
     {% if next %}
       <input type="hidden" name="next" value="{{ next }}">
     {% endif %}
+
+    <button type="submit" style="
+      background:#007bff; color:white; border:none; padding:0.6rem 1rem;
+      border-radius:4px; cursor:pointer; width:100%; font-size:1rem; font-weight:600;">
+      Log in
+    </button>
   </form>
 
   <p style="margin-top:1rem;">
@@ -82,14 +50,11 @@
   </p>
 
   <p style="margin-top:0.5rem;">
-    Don’t have an account?
-    <a href="{% url 'register' %}">Sign up here</a>
+    Don’t have an account? <a href="{% url 'register' %}">Sign up here</a>
   </p>
 
   <p style="margin-top:0.5rem; font-size:0.9rem; color:#777;">
     Admins: please use <a href="/admin/">/admin/</a> instead.
   </p>
-
 </div>
-
 {% endblock %}
