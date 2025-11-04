@@ -16,7 +16,6 @@ from users.models import SponsorProfile, DriverProfile, send_driver_notification
 from rewards.models import award_points_to_driver
 import requests
 
-
 # --------------------------
 # External products for sponsors
 # --------------------------
@@ -203,6 +202,7 @@ def view_cart(request):
         return redirect("home")
     
     cart_items = CartItem.objects.filter(user=request.user).select_related('catalogue_item')
+    
     total = sum(item.get_total_price() for item in cart_items)
     
     return render(request, "catalogue/cart.html", {
@@ -272,6 +272,22 @@ def update_cart_quantity(request, cart_item_id):
         else:
             cart_item.delete()
             messages.success(request, "Item removed from cart.")
+    
+    return redirect("catalogue:view_cart")
+
+
+@login_required
+def clear_cart(request):
+    if not request.user.is_driver:
+        messages.error(request, "Only drivers can modify the cart.")
+        return redirect("home")
+    
+    if request.method == "POST":
+        deleted_count = CartItem.objects.filter(user=request.user).delete()[0]
+        if deleted_count > 0:
+            messages.success(request, "Cart cleared successfully.")
+        else:
+            messages.info(request, "Cart is already empty.")
     
     return redirect("catalogue:view_cart")
 

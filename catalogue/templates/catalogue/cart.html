@@ -69,16 +69,26 @@
         </tfoot>
     </table>
 
-    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
-        {% if user.driverprofile.organization %}
-            <a href="{% url 'catalogue:view_catalogue' user.driverprofile.organization.id %}" 
-               style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">
-                Continue Shopping
-            </a>
-        {% endif %}
-        <button style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Proceed to Checkout
-        </button>
+    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: space-between;">
+        <div style="display: flex; gap: 1rem;">
+            {% if user.driverprofile.organization %}
+                <a href="{% url 'catalogue:view_catalogue' user.driverprofile.organization.id %}" 
+                   style="padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px;">
+                    Continue Shopping
+                </a>
+            {% endif %}
+            <button style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Proceed to Checkout
+            </button>
+        </div>
+        <form method="post" action="{% url 'catalogue:clear_cart' %}" style="margin: 0;">
+            {% csrf_token %}
+            <button type="submit" 
+                    onclick="return confirm('Are you sure you want to clear your entire cart?')"
+                    style="padding: 10px 20px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Clear Cart
+            </button>
+        </form>
     </div>
 {% else %}
     <div style="text-align: center; padding: 3rem; background-color: #f8f9fa; border-radius: 8px; margin-top: 2rem;">
