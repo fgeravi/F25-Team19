@@ -38,6 +38,27 @@
       <label for="{{ form.remember_me.id_for_label }}">Remember me</label>
     </div>
 
+  <!-- templates/users/registration/login.html -->
+<form method="post" novalidate>
+  {% csrf_token %}
+
+  <!-- If you render fields manually, keep your existing username/password inputs -->
+  <!-- If you render {{ form.as_p }} or similar, you can keep it and just add the checkbox below -->
+
+  <div class="form-check my-2">
+    {{ form.remember_me }}
+    <label class="form-check-label" for="{{ form.remember_me.id_for_label }}">
+      Remember me
+    </label>
+  </div>
+
+  <button type="submit" class="btn btn-primary w-100">Sign in</button>
+
+  {% if message %}
+    <div class="alert alert-danger mt-2">{{ message }}</div>
+  {% endif %}
+</form>
+
     <button type="submit" style="
       background:#007bff;
       color:white;

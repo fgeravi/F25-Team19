@@ -20,6 +20,8 @@ from django.db.models import Q
 import csv 
 from django.http import HttpResponse
 from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import authenticate, login, logout
+from .forms import LoginForm  # make sure this exists in users/forms.py per earlier step
 
 
 @login_required
@@ -657,3 +659,30 @@ def admin_import_users_view(request):
         'has_permission': True,
     }
     return render(request, 'admin/users/user/import_users.html', context)
+
+def login_view(request):
+    form = LoginForm(request.POST or None)
+    msg = None
+
+    if request.method == "POST" and form.is_valid():
+        username = form.cleaned_data["username"]
+        password = form.cleaned_data["password"]
+        remember = form.cleaned_data.get("remember_me", False)
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            # Remember-me behavior:
+            # - Unchecked: expire when browser closes
+            # - Checked: use SESSION_COOKIE_AGE (e.g., 2 weeks) from settings
+            request.session.set_expiry(0 if not remember else None)
+            return redirect("home")
+        else:
+            msg = "Invalid credentials."
+
+    return render(request, "users/registration/login.html", {"form": form, "message": msg})
+
+
+def logout_view(request):
+    logout(request)
+    return redirect("login")

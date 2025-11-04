@@ -97,6 +97,23 @@ class LockedOutAdminAuthenticationForm(AdminAuthenticationForm):
         return super().clean()
 
 
+class LoginForm(AuthenticationForm):
+    username = forms.CharField(
+        label="Username",
+        widget=forms.TextInput(attrs={"autofocus": True, "class": "form-control"})
+    )
+    password = forms.CharField(
+        label="Password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password", "class": "form-control"})
+    )
+    remember_me = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Remember me for 2 weeks",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+    )
+
 # account editing forms
 class AccountForm(forms.ModelForm):
     class Meta:
