@@ -34,6 +34,20 @@
     </div>
 
     <h3>Transaction History</h3>
+
+    <form method="get" class="mb-3">
+        <div class="input-group">
+            <input type="text" name="q" class="form-control" placeholder="Search by reason..." value="{{ search_query }}">
+            <select name="sort" class="form-select" style="max-width: 200px;">
+                <option value="-date" {% if sort_order == '-date' %}selected{% endif %}>Newest First</option>
+                <option value="date" {% if sort_order == 'date' %}selected{% endif %}>Oldest First</option>
+                <option value="-point_change_amt" {% if sort_order == '-point_change_amt' %}selected{% endif %}>Amount (High to Low)</option>
+                <option value="point_change_amt" {% if sort_order == 'point_change_amt' %}selected{% endif %}>Amount (Low to High)</option>
+            </select>
+            <button class="btn btn-outline-primary" type="submit">Apply</button>
+        </div>
+    </form>
+    
     <table class="table table-striped">
         <thead>
             <tr>

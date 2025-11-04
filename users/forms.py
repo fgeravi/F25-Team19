@@ -97,6 +97,23 @@ class LockedOutAdminAuthenticationForm(AdminAuthenticationForm):
         return super().clean()
 
 
+class LoginForm(AuthenticationForm):
+    username = forms.CharField(
+        label="Username",
+        widget=forms.TextInput(attrs={"autofocus": True, "class": "form-control"})
+    )
+    password = forms.CharField(
+        label="Password",
+        strip=False,
+        widget=forms.PasswordInput(attrs={"autocomplete": "current-password", "class": "form-control"})
+    )
+    remember_me = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Remember me for 2 weeks",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
+    )
+
 # account editing forms
 class AccountForm(forms.ModelForm):
     class Meta:
@@ -191,6 +208,32 @@ class DriverCreationForm(forms.ModelForm):
             user.save()
             if organization:
                 DriverProfile.objects.create(user=user, organization=organization)
+        return user
+    
+class SponsorCreationForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput, label="Temporary Password")
+    password2 = forms.CharField(widget=forms.PasswordInput, label="Confirm Temporary Password")
+
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email')
+
+    def clean_password2(self):
+        password = self.cleaned_data.get("password")
+        password2 = self.cleaned_data.get("password2")
+        if password and password2 and password != password2:
+            raise forms.ValidationError("The two temporary passwords do not match.")
+        return password2
+
+    def save(self, commit=True, organization=None):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        user.is_sponsor = True
+
+        if commit:
+            user.save()
+            if organization:
+                SponsorProfile.objects.create(user=user, organization=organization)
         return user
     
 class DriverImportForm(forms.Form):

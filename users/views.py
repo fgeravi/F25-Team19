@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
-from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm, DriverImportForm
+from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm, DriverImportForm, SponsorCreationForm
 from .forms import LockedOutAuthenticationForm
 from .forms import NotificationPreferenceForm
 from django.contrib.auth.decorators import login_required
@@ -20,6 +20,8 @@ from django.db.models import Q
 import csv 
 from django.http import HttpResponse
 from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth import authenticate, login, logout
+from .forms import LoginForm  # make sure this exists in users/forms.py per earlier step
 
 
 @login_required
@@ -168,13 +170,14 @@ def manage_drivers_view(request):
 
     try:
         sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
 
         # filtering inputs
         search_query = request.GET.get('q', '')
         status_query = request.GET.get('status', '')
 
         drivers = DriverSponsor.objects.filter(
-            sponsor=sponsor_profile,
+            driver__organization=sponsor_organization,
             approved=True
         ).select_related('driver__user')
 
@@ -354,6 +357,36 @@ def add_driver_view(request):
     }
     return render(request, 'users/add_driver.html', context)
 
+@login_required
+def add_sponsor_view(request):
+    if not getattr(request.user, "is_sponsor", False):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    try:
+        sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = SponsorCreationForm(request.POST)
+        if form.is_valid():
+            new_sponsor_user = form.save(organization=sponsor_organization)
+
+            messages.success(request, f"New sponsor user '{new_sponsor_user.username}' has been added successfully.")
+            return redirect('manage_drivers')
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = SponsorCreationForm()
+
+    context = {
+        'form': form
+    }
+    return render(request, 'users/add_sponsor.html', context)
+
 
 
 
@@ -459,6 +492,83 @@ def import_drivers_view(request):
     return render(request, 'users/import_drivers.html', context)
 
 
+@login_required
+def export_drivers_csv(request):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    try:
+        sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
+
+        drivers_query = DriverSponsor.objects.filter(
+            driver__organization=sponsor_organization,
+            approved=True
+        ).select_related('driver__user').order_by('driver__user__username')
+
+        search_query = request.GET.get('q', '')
+        status_query = request.GET.get('status', '')
+
+        if search_query:
+            drivers_query = drivers_query.filter(
+                Q(driver__user__username__icontains=search_query) |
+                Q(driver__user__first_name__icontains=search_query) |
+                Q(driver__user__last_name__icontains=search_query)
+            )
+
+        if status_query == "active":
+            drivers_query = drivers_query.filter(driver__user__is_active=True)
+        elif status_query == "inactive":
+            drivers_query = drivers_query.filter(driver__user__is_active=False)
+
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={'Content-Disposition': f'attachment; filename="drivers_export_{timezone.now().strftime("%Y-%m-%d")}.csv"'},
+        )
+
+        writer = csv.writer(response)
+        
+        writer.writerow(['Username', 'Email', 'First Name', 'Last Name', 'Status'])
+
+        for ds in drivers_query:
+            user = ds.driver.user
+            status = "Active" if user.is_active else "Inactive"
+            writer.writerow([user.username, user.email, user.first_name, user.last_name, status])
+
+        return response
+
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+    
+
+@login_required
+def view_sponsors_list(request):
+    if not request.user.is_driver:
+        messages.error(request, "You do not have permission to view this page.")
+        return redirect('home')
+
+    try:
+        driver_profile = request.user.driverprofile
+        driver_organization = driver_profile.organization
+
+        if not driver_organization:
+            messages.warning(request, "You are not currently associated with an organization.")
+            sponsors = []
+        else:
+            sponsors = SponsorProfile.objects.filter(
+                organization=driver_organization
+            ).select_related('user').order_by('user__last_name', 'user__first_name')
+
+    except DriverProfile.DoesNotExist:
+        messages.error(request, "Your driver profile could not be found.")
+        return redirect('home')
+
+    context = {
+        'sponsors': sponsors
+    }
+    return render(request, 'users/view_sponsors.html', context)
 
 @staff_member_required
 def admin_import_users_view(request):
@@ -549,3 +659,30 @@ def admin_import_users_view(request):
         'has_permission': True,
     }
     return render(request, 'admin/users/user/import_users.html', context)
+
+def login_view(request):
+    form = LoginForm(request.POST or None)
+    msg = None
+
+    if request.method == "POST" and form.is_valid():
+        username = form.cleaned_data["username"]
+        password = form.cleaned_data["password"]
+        remember = form.cleaned_data.get("remember_me", False)
+
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            # Remember-me behavior:
+            # - Unchecked: expire when browser closes
+            # - Checked: use SESSION_COOKIE_AGE (e.g., 2 weeks) from settings
+            request.session.set_expiry(0 if not remember else None)
+            return redirect("home")
+        else:
+            msg = "Invalid credentials."
+
+    return render(request, "users/registration/login.html", {"form": form, "message": msg})
+
+
+def logout_view(request):
+    logout(request)
+    return redirect("login")
