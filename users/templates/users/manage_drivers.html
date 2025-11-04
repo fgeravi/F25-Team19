@@ -8,6 +8,7 @@
         <a href="{% url 'add_driver' %}" class="btn btn-primary">Add Driver</a>
         <a href="{% url 'import_drivers' %}" class="btn btn-success">Import Drivers</a>
         <a href="{% url 'add_sponsor' %}" class="btn btn-success">Add Sponsor</a>
+        <a href="{% url 'export_drivers_csv' %}?q={{ search_query }}&status={{ status_filter }}" class="btn btn-secondary">Export as CSV</a>
     </div>
 
     <p>Here you can view and edit the driver accounts for your organization.</p>

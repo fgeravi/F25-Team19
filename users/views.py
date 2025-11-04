@@ -490,6 +490,56 @@ def import_drivers_view(request):
     return render(request, 'users/import_drivers.html', context)
 
 
+@login_required
+def export_drivers_csv(request):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    try:
+        sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = sponsor_profile.organization
+
+        drivers_query = DriverSponsor.objects.filter(
+            driver__organization=sponsor_organization,
+            approved=True
+        ).select_related('driver__user').order_by('driver__user__username')
+
+        search_query = request.GET.get('q', '')
+        status_query = request.GET.get('status', '')
+
+        if search_query:
+            drivers_query = drivers_query.filter(
+                Q(driver__user__username__icontains=search_query) |
+                Q(driver__user__first_name__icontains=search_query) |
+                Q(driver__user__last_name__icontains=search_query)
+            )
+
+        if status_query == "active":
+            drivers_query = drivers_query.filter(driver__user__is_active=True)
+        elif status_query == "inactive":
+            drivers_query = drivers_query.filter(driver__user__is_active=False)
+
+        response = HttpResponse(
+            content_type='text/csv',
+            headers={'Content-Disposition': f'attachment; filename="drivers_export_{timezone.now().strftime("%Y-%m-%d")}.csv"'},
+        )
+
+        writer = csv.writer(response)
+        
+        writer.writerow(['Username', 'Email', 'First Name', 'Last Name', 'Status'])
+
+        for ds in drivers_query:
+            user = ds.driver.user
+            status = "Active" if user.is_active else "Inactive"
+            writer.writerow([user.username, user.email, user.first_name, user.last_name, status])
+
+        return response
+
+    except SponsorProfile.DoesNotExist:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect('home')
+
 
 @staff_member_required
 def admin_import_users_view(request):
