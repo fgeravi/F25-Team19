@@ -1,6 +1,7 @@
 from django import forms
 from applications.models import DriverApplication
 from organizations.models import Organization
+from users.models import SponsorProfile
 
 # --------------------------
 # Driver applies to an org
@@ -8,15 +9,15 @@ from organizations.models import Organization
 
 
 class ApplicationForm(forms.ModelForm):
-    organization = forms.ModelChoiceField(
-        queryset=Organization.objects.filter(is_active=True),
-        label="Organization",
-        empty_label="Select an organization"
+    sponsor = forms.ModelChoiceField(
+        queryset=SponsorProfile.objects.all(),
+        label="Sponsor",
+        empty_label="Select a sponsor"
     )
 
     class Meta:
         model = DriverApplication
-        fields = ["organization", "message"]
+        fields = ["sponsor", "message"]
         widgets = {
             "message": forms.Textarea(attrs={"rows": 4}),
         }

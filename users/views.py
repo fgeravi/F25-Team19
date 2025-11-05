@@ -661,7 +661,7 @@ def admin_import_users_view(request):
     return render(request, 'admin/users/user/import_users.html', context)
 
 def login_view(request):
-    form = LoginForm(request.POST or None)
+    form = LoginForm(request=request, data=request.POST or None)
     msg = None
 
     if request.method == "POST" and form.is_valid():
@@ -672,17 +672,10 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
-            # Remember-me behavior:
-            # - Unchecked: expire when browser closes
-            # - Checked: use SESSION_COOKIE_AGE (e.g., 2 weeks) from settings
             request.session.set_expiry(0 if not remember else None)
-            return redirect("home")
+            redirect_to = request.POST.get('next') or 'home'
+            return redirect(redirect_to)
         else:
             msg = "Invalid credentials."
 
     return render(request, "users/registration/login.html", {"form": form, "message": msg})
-
-
-def logout_view(request):
-    logout(request)
-    return redirect("login")

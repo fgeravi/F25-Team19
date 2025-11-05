@@ -5,7 +5,7 @@
 <div style="max-width:400px; margin:4rem auto; text-align:center;">
   <h1>Login</h1>
 
-  <form method="post" style="text-align:left; margin-top:1rem;" novalidate>
+  <form method="post" action="{% url 'login' %}" style="text-align:left; margin-top:1rem;" novalidate>
     {% csrf_token %}
     {{ form.non_field_errors }}
 

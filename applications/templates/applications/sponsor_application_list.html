@@ -1,12 +1,9 @@
 {% extends "base.html" %}
 {% load static %}
 {% block content %}
-<h2>Applications for {{ org.name }}</h2>
+<h2>Applications for {{ sponsor.user.username }} ({{ sponsor.organization.name }})</h2>
 
 <a class="btn btn-outline-primary" href="{% url 'export_applications_csv' %}">Download CSV</a>
-{#
-<a class="btn btn-outline-primary" href="{% url 'applications:export_applications_csv' %}">Download CSV</a>
-#}
 
 <table>
     <thead>

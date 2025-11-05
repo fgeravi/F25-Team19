@@ -31,29 +31,29 @@ def driver_applications_list(request):
 # Driver applies to an org
 # -------------------------
 @login_required
-def apply_to_organization(request):
+def apply_to_sponsor(request):
     if not is_driver(request.user):
-        messages.error(request, "Only drivers can apply to organizations.")
+        messages.error(request, "Only drivers can apply to sponsors.")
         return redirect("home")
 
     if request.method == "POST":
         form = ApplicationForm(request.POST)
         if form.is_valid():
-            org = form.cleaned_data["organization"]
+            sponsor = form.cleaned_data["sponsor"]
 
             # Check if already applied
-            existing = DriverApplication.objects.filter(driver=request.user, organization=org).first()
+            existing = DriverApplication.objects.filter(driver=request.user, sponsor=sponsor).first()
             if existing:
-                messages.info(request, "You have already applied to this organization.")
+                messages.info(request, "You have already applied to this sponsor.")
                 return redirect("driver_applications_list")
 
             # Create application
             DriverApplication.objects.create(
                 driver=request.user,
-                organization=org,
+                sponsor=sponsor,
                 message=form.cleaned_data.get("message", "")
             )
-            messages.success(request, f"Application sent to {org.name}.")
+            messages.success(request, f"Application sent to {sponsor.user.username}.")
             return redirect("driver_applications_list")
     else:
         form = ApplicationForm()
@@ -70,19 +70,17 @@ def sponsor_view_applications(request):
         messages.error(request, "Only sponsors can view applications.")
         return redirect("home")
 
-    org = getattr(request.user.sponsorprofile, "organization", None)
-    if not org:
-        messages.error(request, "You are not associated with an organization.")
+    sponsor = getattr(request.user, "sponsorprofile", None)
+    if not sponsor:
+        messages.error(request, "Sponsor profile not found.")
         return redirect("home")
 
-    applications = org.applications.all()  # All applications for this sponsor's org
+    applications = sponsor.applications.all()  # Applications directly for this sponsor
     return render(request, "applications/sponsor_application_list.html", {
         "applications": applications,
-        "org": org  # so template can access org.name
+        "sponsor": sponsor  # template can access sponsor.user.username or sponsor.organization.name
     })
 
-
-# TODO: TEST THIS -> create a new driver, apply to zachtestorg, login as zachsponsor, accept, log in as new driver, view catalogue
 
 # -------------------------
 # Sponsor accepts/denies an app
@@ -94,50 +92,52 @@ def update_application_status(request, app_id):
         return redirect("home")
 
     application = get_object_or_404(DriverApplication, id=app_id)
-    org = getattr(request.user.sponsorprofile, "organization", None)
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        messages.error(request, "You do not have a sponsor profile.")
+        return redirect("home")
 
-    # Ensure sponsor belongs to the same org
-    if application.organization != org:
-        messages.error(request, "You cannot update applications for other organizations.")
-        return redirect("sponsor_view_applications")  # FIX
+    # Ensure sponsor owns this application
+    if application.sponsor != sponsor_profile:
+        messages.error(request, "You cannot update applications for other sponsors.")
+        return redirect("sponsor_view_applications")
 
     if request.method == "POST":
         form = ApplicationUpdateForm(request.POST, instance=application)
         if form.is_valid():
             form.save()
 
-            # Handle accepted status
             if application.status == "accepted":
                 from users.models import DriverProfile
 
                 driver_profile, created = DriverProfile.objects.get_or_create(
                     user=application.driver,
-                    defaults={"organization": application.organization}
+                    defaults={"organization": sponsor_profile.organization}
                 )
 
                 if created:
                     messages.success(
                         request,
-                        f"DriverProfile created for {application.driver.username} under {application.organization.name}."
+                        f"DriverProfile created for {application.driver.username} under {sponsor_profile.organization.name}."
                     )
                 else:
                     old_org = driver_profile.organization
-                    if old_org != application.organization:
-                        driver_profile.organization = application.organization
+                    if old_org != sponsor_profile.organization:
+                        driver_profile.organization = sponsor_profile.organization
                         driver_profile.save(update_fields=["organization"])
                         old_org_name = old_org.name if old_org else "None"
                         messages.info(
                             request,
-                            f"{application.driver.username}'s profile updated from {old_org_name} to {application.organization.name}."
+                            f"{application.driver.username}'s profile updated from {old_org_name} to {sponsor_profile.organization.name}."
                         )
                     else:
                         messages.info(
                             request,
-                            f"{application.driver.username} is already part of {application.organization.name}."
+                            f"{application.driver.username} is already part of {sponsor_profile.organization.name}."
                         )
 
             messages.success(request, "Application updated.")
-            return redirect("sponsor_view_applications")  # FIX
+            return redirect("sponsor_view_applications")
     else:
         form = ApplicationUpdateForm(instance=application)
 
@@ -147,15 +147,20 @@ def update_application_status(request, app_id):
     })
 
 
+
 # -----------------------------------------
 # CSV export
 # -----------------------------------------
 @login_required
 @require_GET
+@login_required
+@require_GET
 def export_applications_csv(request):
     """
+    CSV export of driver applications.
+
     Staff:    export all applications.
-    Sponsors: export applications for their organization.
+    Sponsors: export applications for their sponsor profile.
     Drivers:  export only their own applications.
     """
     user = request.user
@@ -165,19 +170,18 @@ def export_applications_csv(request):
         qs = (
             DriverApplication.objects
             .all()
-            .select_related("driver", "organization")
+            .select_related("driver", "sponsor__organization")
             .order_by("-id")
         )
     elif is_sponsor(user):
         sponsorprofile = getattr(user, "sponsorprofile", None)
-        org = getattr(sponsorprofile, "organization", None) if sponsorprofile else None
-        if not org:
-            return HttpResponseForbidden("Sponsor profile/organization not found.")
+        if not sponsorprofile:
+            return HttpResponseForbidden("Sponsor profile not found.")
         role = "sponsor"
         qs = (
             DriverApplication.objects
-            .filter(organization_id=org.id)
-            .select_related("driver", "organization")
+            .filter(sponsor_id=sponsorprofile.id)
+            .select_related("driver", "sponsor__organization")
             .order_by("-id")
         )
     elif is_driver(user):
@@ -185,7 +189,7 @@ def export_applications_csv(request):
         qs = (
             DriverApplication.objects
             .filter(driver=user)
-            .select_related("driver", "organization")
+            .select_related("driver", "sponsor__organization")
             .order_by("-id")
         )
     else:
@@ -202,7 +206,8 @@ def export_applications_csv(request):
         "Application ID",
         "Driver Username",
         "Driver Email",
-        "Organization",
+        "Sponsor",
+        "Sponsor Organization",
         "Status",
         "Message",
         "Submitted At",
@@ -210,13 +215,14 @@ def export_applications_csv(request):
     ])
 
     for app in qs:
-        submitted = getattr(app, "created_at", None) or getattr(app, "created", None)
-        updated = getattr(app, "updated_at", None) or getattr(app, "modified", None)
+        submitted = getattr(app, "created_at", None)
+        updated = getattr(app, "updated_at", None)
         writer.writerow([
             app.pk,
             getattr(app.driver, "username", ""),
             getattr(app.driver, "email", ""),
-            getattr(app.organization, "name", ""),
+            getattr(app.sponsor.user, "username", ""),
+            getattr(app.sponsor.organization, "name", ""),
             getattr(app, "status", ""),
             getattr(app, "message", "") or "",
             localtime(submitted).strftime("%Y-%m-%d %H:%M") if submitted else "",

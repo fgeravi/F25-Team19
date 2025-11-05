@@ -19,6 +19,7 @@
 <table>
     <thead>
         <tr>
+            <th>Sponsor</th>
             <th>Organization</th>
             <th>Status</th>
             <th>Applied On</th>
@@ -28,7 +29,8 @@
     <tbody>
         {% for app in applications %}
         <tr>
-            <td>{{ app.organization.name }}</td>
+            <td>{{ app.sponsor.user.username }}</td>
+            <td>{{ app.sponsor.organization.name }}</td>
             <td>{{ app.status|capfirst }}</td>
             <td>{{ app.created_at|date:"M d, Y H:i" }}</td>
             <td>{{ app.message|default:"-" }}</td>
@@ -37,8 +39,8 @@
     </tbody>
 </table>
 {% else %}
-<p>You haven't applied to any organizations yet.</p>
+<p>You haven't applied to any sponsors yet.</p>
 {% endif %}
 
-<p><a href="{% url 'apply_to_organization' %}">Apply to a new organization</a></p>
+<p><a href="{% url 'apply_to_sponsor' %}">Apply to a new sponsor</a></p>
 {% endblock %}
