@@ -100,19 +100,28 @@ def update_application_status(request, app_id):
     # Ensure sponsor owns this application
     if application.sponsor != sponsor_profile:
         messages.error(request, "You cannot update applications for other sponsors.")
-        return redirect("sponsor_view_applications")
+        return redirect("sponsor_applications")
 
     if request.method == "POST":
         form = ApplicationUpdateForm(request.POST, instance=application)
         if form.is_valid():
             form.save()
+            from users.models import DriverProfile # old method (will phase out)
+            from users.models import DriverSponsor # new method
 
             if application.status == "accepted":
-                from users.models import DriverProfile
+                
 
+                # create driver profile
                 driver_profile, created = DriverProfile.objects.get_or_create(
                     user=application.driver,
                     defaults={"organization": sponsor_profile.organization}
+                )
+                # create driverSponsor relationship
+                DriverSponsor.objects.get_or_create(
+                    driver = driver_profile,
+                    sponsor = sponsor_profile
+
                 )
 
                 if created:
@@ -135,9 +144,22 @@ def update_application_status(request, app_id):
                             request,
                             f"{application.driver.username} is already part of {sponsor_profile.organization.name}."
                         )
+            else:
+                # Status changed away from accepted → remove relationship
+                # Remove sponsor link
+                driver_profile = DriverProfile.objects.filter(user=application.driver).first()
+                if driver_profile and driver_profile.organization == sponsor_profile.organization:
+                    driver_profile.organization = None
+                    driver_profile.save(update_fields=["organization"])
+
+                # Remove DriverSponsor object
+                DriverSponsor.objects.filter(
+                    driver=driver_profile,
+                    sponsor=sponsor_profile
+                ).delete()
 
             messages.success(request, "Application updated.")
-            return redirect("sponsor_view_applications")
+            return redirect("sponsor_applications")
     else:
         form = ApplicationUpdateForm(instance=application)
 

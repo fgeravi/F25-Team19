@@ -354,7 +354,7 @@ class DriverSponsor(models.Model):
         on_delete=models.CASCADE,
         related_name="drivers"
     )
-    approved = models.BooleanField(default=False)
+    approved = models.BooleanField(default=True)
     points = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 

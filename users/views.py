@@ -26,24 +26,28 @@ from .forms import LoginForm  # make sure this exists in users/forms.py per earl
 
 @login_required
 def home(request):
-    organization = None  # initialize
-    driver_sponsorships = None  # initialize
+    organization = None
+    driver_sponsorships = None
 
-    # if the user is a driver, get their organization from the driver profile
+    # Driver
     if getattr(request.user, "is_driver", False):
-        driver_profile = getattr(request.user, "driverprofile", None) # acquire driver profile
+        driver_profile = DriverProfile.objects.filter(user=request.user).first()
         if driver_profile:
-            driver_sponsorships = request.user.driverprofile.sponsorships.filter(approved=True) # get driver sponsorships
+            driver_sponsorships = DriverSponsor.objects.filter(
+                driver=driver_profile,
+                approved=True
+            )
 
-    # if the user is a sponsor, get their organization from the sponsor profile
+    # Sponsor
     elif getattr(request.user, "is_sponsor", False):
         sponsor_profile = getattr(request.user, "sponsorprofile", None)
         if sponsor_profile and sponsor_profile.organization:
             organization = sponsor_profile.organization
 
-    return render(request, 'users/home.html', 
-                  {"organization": organization, "driver_sponsorships": driver_sponsorships}
-                  )
+    return render(request, "users/home.html", {
+        "organization": organization,
+        "driver_sponsorships": driver_sponsorships,
+    })
 
 
 def register(request):
