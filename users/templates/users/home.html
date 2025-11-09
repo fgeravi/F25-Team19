@@ -6,6 +6,7 @@
 
 {% if user.is_authenticated %}
   <p>Welcome {{ user.username }}</p>
+  
   <div class="mb-2">
     <a href="{% url 'account_management' %}" class="btn btn-primary">
       Edit account

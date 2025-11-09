@@ -141,6 +141,23 @@ class SponsorProfileForm(forms.ModelForm):
             "company_name": forms.TextInput(attrs={"class": "form-control"}),
         }
 
+    def save(self, commit=True):
+        # Save the SponsorProfile first
+        instance = super().save(commit=False)
+
+        # Sync the organization name
+        if instance.organization:
+            instance.organization.name = instance.company_name
+            if commit:
+                instance.organization.save()
+
+        # Save SponsorProfile
+        if commit:
+            instance.save()
+
+        return instance
+
+
 
 class DriverEditForm(forms.ModelForm):
     class Meta:
