@@ -6,6 +6,11 @@
 
 {% if user.is_authenticated %}
   <p>Welcome {{ user.username }}</p>
+  <div class="mb-2">
+    <a href="{% url 'account_management' %}" class="btn btn-primary">
+      Edit account
+    </a>
+  </div>
 
   {# Session Status Indicator #}
   <div class="alert {% if request.session.remember_me %}alert-info{% else %}alert-secondary{% endif %} mb-3">
