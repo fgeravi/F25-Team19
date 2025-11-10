@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     "audit.apps.AuditConfig",
     "notifications.apps.NotificationsConfig",
     "catalogue.apps.CatalogueConfig",
+    "hijack",
+    "hijack.contrib.admin",
 ]
 
 MIDDLEWARE = [
@@ -75,6 +77,7 @@ MIDDLEWARE = [
     "audit.middleware.NewLocationBannerMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "users.middleware.SessionTimeoutMiddleware",
+    'hijack.middleware.HijackUserMiddleware',
 ]
 
 ROOT_URLCONF = "config.urls"
