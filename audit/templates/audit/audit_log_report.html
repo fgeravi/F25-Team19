@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Audit Log Report{% endblock %}
+{% block content %}
+<div class="container mt-4">
+  <h1>Audit Log Report</h1>
+  <hr>
+
+  <form method="get" class="row g-3 mb-3">
+    <div class="col-md-3">
+      <label class="form-label">Event Type</label>
+      <select name="event_type" class="form-select">
+        <option value="all" {% if event_type == "all" %}selected{% endif %}>All Events</option>
+        <option value="login" {% if event_type == "login" %}selected{% endif %}>Login Attempts</option>
+        <option value="password" {% if event_type == "password" %}selected{% endif %}>Password Changes</option>
+        <option value="location" {% if event_type == "location" %}selected{% endif %}>New Login Locations</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">Start Date</label>
+      <input type="date" name="start" class="form-control" value="{{ start|date:'Y-m-d' }}" placeholder="YYYY-MM-DD">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label">End Date</label>
+      <input type="date" name="end" class="form-control" value="{{ end|date:'Y-m-d' }}" placeholder="YYYY-MM-DD">
+    </div>
+    {% if is_admin %}
+    <div class="col-md-3">
+      <label class="form-label">Username</label>
+      <input type="text" name="username" class="form-control" value="{{ username_filter }}" placeholder="Filter by username">
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+      <button type="submit" class="btn btn-primary w-100">Filter</button>
+    </div>
+    {% else %}
+    <div class="col-md-5 d-flex align-items-end">
+      <button type="submit" class="btn btn-primary w-100">Filter</button>
+    </div>
+    {% endif %}
+  </form>
+
+  <div class="card mb-4">
+    <div class="card-header bg-info text-white">
+      <h5 class="mb-0">📊 Audit Log Legend</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <h6>Event Types:</h6>
+          <ul class="small">
+            <li><strong>Login Attempt:</strong> User login activity (successful or failed)</li>
+            <li><strong>Password Change:</strong> User password modification</li>
+            <li><strong>New Login Location:</strong> Login from a new IP address/location</li>
+          </ul>
+        </div>
+        <div class="col-md-6">
+          <h6>Column Descriptions:</h6>
+          <ul class="small">
+            <li><strong>Type:</strong> Category of the audit event</li>
+            <li><strong>User:</strong> Username associated with the event</li>
+            <li><strong>Timestamp:</strong> When the event occurred</li>
+            <li><strong>IP Address:</strong> Source IP address of the event</li>
+            <li><strong>Details:</strong> Additional information about the event</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mb-2">
+    <strong>Total Events: {{ events|length }}</strong>
+  </div>
+
+  <table class="table table-striped table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>Type</th>
+        <th>User</th>
+        <th>Timestamp</th>
+        <th>IP Address</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for event in events %}
+        <tr>
+          <td>
+            {% if event.type == "Login Attempt" %}
+              <span class="badge bg-primary">{{ event.type }}</span>
+            {% elif event.type == "Password Change" %}
+              <span class="badge bg-warning text-dark">{{ event.type }}</span>
+            {% elif event.type == "New Login Location" %}
+              <span class="badge bg-info">{{ event.type }}</span>
+            {% endif %}
+          </td>
+          <td>{{ event.user }}</td>
+          <td>{{ event.timestamp|date:"N j, Y, P" }}</td>
+          <td><code>{{ event.ip }}</code></td>
+          <td>{{ event.details }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="text-center">No audit events found for the selected filters.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

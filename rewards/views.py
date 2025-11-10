@@ -163,6 +163,7 @@ def points_tracking_report(request):
     start = parse_date(request.GET.get("start", "") or "")
     end = parse_date(request.GET.get("end", "") or "")
     driver_id = request.GET.get("driver") or ""
+    sort_order = request.GET.get("sort", "desc")
 
     # NEW: audits only for drivers linked to this sponsor
     linked_driver_users = (
@@ -184,7 +185,11 @@ def points_tracking_report(request):
     if driver_id:
         qs = qs.filter(driver_id=driver_id)
 
-    qs = qs.select_related("driver", "sponsor").order_by("-date")
+    # Apply sorting
+    if sort_order == "asc":
+        qs = qs.select_related("driver", "sponsor").order_by("date")
+    else:  # default to desc
+        qs = qs.select_related("driver", "sponsor").order_by("-date")
 
     # NEW: driver dropdown = only linked drivers (use DriverProfile for template compatibility)
     drivers = (
@@ -204,6 +209,7 @@ def points_tracking_report(request):
         "start": start,
         "end": end,
         "driver_id": str(driver_id),
+        "sort_order": sort_order,
     }
     return render(request, "rewards/reports/points_tracking.html", ctx)
 
@@ -222,6 +228,7 @@ def points_tracking_csv(request):
     start = parse_date(request.GET.get("start", "") or "")
     end = parse_date(request.GET.get("end", "") or "")
     driver_id = request.GET.get("driver") or ""
+    sort_order = request.GET.get("sort", "desc")
 
     linked_driver_users = (
         User.objects
@@ -241,7 +248,11 @@ def points_tracking_csv(request):
     if driver_id:
         qs = qs.filter(driver_id=driver_id)
 
-    qs = qs.select_related("driver", "sponsor").order_by("-date")
+    # Apply sorting
+    if sort_order == "asc":
+        qs = qs.select_related("driver", "sponsor").order_by("date")
+    else:  # default to desc
+        qs = qs.select_related("driver", "sponsor").order_by("-date")
 
     # Build CSV
     resp = HttpResponse(content_type="text/csv")

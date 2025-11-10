@@ -31,6 +31,18 @@
     </div>
 
     <div class="mb-2">
+      <a href="{% url 'rewards:points_report' %}" class="btn btn-info">
+          Driver Point Tracking Report
+      </a>
+    </div>
+
+    <div class="mb-2">
+      <a href="{% url 'audit:audit_log_report' %}" class="btn btn-warning">
+          Audit Log Report
+      </a>
+    </div>
+
+    <div class="mb-2">
       <a href="{% url 'manage_drivers' %}" class="btn btn-secondary">
           Manage Driver Accounts
       </a>
