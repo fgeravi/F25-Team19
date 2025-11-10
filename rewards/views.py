@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from .models import PointChangeAudit
-from users.models import DriverProfile, User, SponsorProfile
+from users.models import DriverProfile, User, SponsorProfile, DriverSponsor
 from django.shortcuts import redirect
 from django.contrib import messages
 from .models import award_points_to_driver
@@ -19,11 +19,11 @@ def point_dashboard(request):
         return redirect('home')
 
     search_query = request.GET.get('q', '')
-    sort_order = request.GET.get('sort', '-date')  
+    sort_order = request.GET.get('sort', '-date')
 
     valid_sort_orders = ['date', '-date', 'point_change_amt', '-point_change_amt']
     if sort_order not in valid_sort_orders:
-        sort_order = '-date' 
+        sort_order = '-date'
     try:
         driver_profile = request.user.driverprofile
         current_balance = driver_profile.current_points
@@ -51,8 +51,8 @@ def point_dashboard(request):
         'current_balance': current_balance,
         'transactions': transactions,
         'weekly_earnings': weekly_earnings,
-        'search_query': search_query, 
-        'sort_order': sort_order,      
+        'search_query': search_query,
+        'sort_order': sort_order,
     }
     return render(request, 'rewards/dashboard.html', context)
 
@@ -62,6 +62,11 @@ def add_points_view(request):
     if not request.user.is_sponsor:
         messages.error(request, "You do not have permission to access this page.")
         return redirect('home')
+
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect("home")
 
     if request.method == 'POST':
         try:
@@ -76,6 +81,15 @@ def add_points_view(request):
 
             sponsor_user = request.user
             driver_user = User.objects.get(pk=driver_id, is_driver=True)
+
+            # NEW: ensure this driver is actually linked to this sponsor
+            if not DriverSponsor.objects.filter(
+                sponsor=sponsor_profile,
+                driver__user=driver_user,
+                approved=True
+            ).exists():
+                messages.error(request, "That driver is not linked to you.")
+                return redirect('rewards:add_points')
 
             success, message = award_points_to_driver(
                 sponsor_user=sponsor_user,
@@ -98,10 +112,20 @@ def add_points_view(request):
 
         return redirect('rewards:add_points')
 
-    drivers = User.objects.filter(is_driver=True, is_active=True).order_by("username")
-    context = {
-        'drivers': drivers
-    }
+    # NEW: driver list limited to this sponsor’s linked/approved drivers
+    drivers = (
+        User.objects
+        .filter(
+            is_driver=True,
+            is_active=True,
+            driverprofile__sponsorships__sponsor=sponsor_profile,
+            driverprofile__sponsorships__approved=True,
+        )
+        .order_by("username")
+        .distinct()
+    )
+
+    context = {"drivers": drivers}
     return render(request, 'rewards/add_points.html', context)
 
 
@@ -129,9 +153,10 @@ def points_tracking_report(request):
         messages.error(request, "Sponsor access required.")
         return redirect("home")
 
-    org = _get_sponsor_org(request.user)
-    if org is None:
-        messages.error(request, "Sponsor organization not set.")
+    # NEW: scope by sponsor↔driver relation instead of org
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        messages.error(request, "Sponsor profile not found.")
         return redirect("home")
 
     # filters
@@ -139,7 +164,18 @@ def points_tracking_report(request):
     end = parse_date(request.GET.get("end", "") or "")
     driver_id = request.GET.get("driver") or ""
 
-    qs = PointChangeAudit.objects.filter(organization=org)
+    # NEW: audits only for drivers linked to this sponsor
+    linked_driver_users = (
+        User.objects
+        .filter(
+            is_driver=True,
+            driverprofile__sponsorships__sponsor=sponsor_profile,
+            driverprofile__sponsorships__approved=True,
+        )
+        .distinct()
+    )
+
+    qs = PointChangeAudit.objects.filter(driver__in=linked_driver_users)
 
     if start:
         qs = qs.filter(date__date__gte=start)
@@ -150,7 +186,17 @@ def points_tracking_report(request):
 
     qs = qs.select_related("driver", "sponsor").order_by("-date")
 
-    drivers = DriverProfile.objects.filter(organization=org).select_related("user").order_by("user__username")
+    # NEW: driver dropdown = only linked drivers (use DriverProfile for template compatibility)
+    drivers = (
+        DriverProfile.objects
+        .filter(
+            sponsorships__sponsor=sponsor_profile,
+            sponsorships__approved=True,
+        )
+        .select_related("user")
+        .order_by("user__username")
+        .distinct()
+    )
 
     ctx = {
         "rows": qs,
@@ -168,15 +214,26 @@ def points_tracking_csv(request):
     if not request.user.is_sponsor:
         return HttpResponse("Forbidden", status=403, content_type="text/plain")
 
-    org = _get_sponsor_org(request.user)
-    if org is None:
-        return HttpResponse("Sponsor organization not set.", status=400, content_type="text/plain")
+    # NEW: scope by sponsor↔driver relation instead of org
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        return HttpResponse("Sponsor profile not found.", status=400, content_type="text/plain")
 
     start = parse_date(request.GET.get("start", "") or "")
     end = parse_date(request.GET.get("end", "") or "")
     driver_id = request.GET.get("driver") or ""
 
-    qs = PointChangeAudit.objects.filter(organization=org)
+    linked_driver_users = (
+        User.objects
+        .filter(
+            is_driver=True,
+            driverprofile__sponsorships__sponsor=sponsor_profile,
+            driverprofile__sponsorships__approved=True,
+        )
+        .distinct()
+    )
+
+    qs = PointChangeAudit.objects.filter(driver__in=linked_driver_users)
     if start:
         qs = qs.filter(date__date__gte=start)
     if end:
@@ -188,7 +245,7 @@ def points_tracking_csv(request):
 
     # Build CSV
     resp = HttpResponse(content_type="text/csv")
-    resp["Content-Disposition"] = 'attachment; filename=\"driver_point_tracking.csv\"'
+    resp["Content-Disposition"] = 'attachment; filename="driver_point_tracking.csv"'
     w = csv.writer(resp)
     w.writerow(["Driver", "Delta", "Date", "Changed By", "Reason", "New Balance"])
 
@@ -201,11 +258,22 @@ def points_tracking_csv(request):
 
 
 def get_driver_points(request, driver_id):
+    # NEW: return sponsor-specific points via DriverSponsor (not global DriverProfile.current_points)
+    if not getattr(request.user, "is_sponsor", False):
+        return JsonResponse({'status': 'error', 'message': 'Forbidden'}, status=403)
+
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        return JsonResponse({'status': 'error', 'message': 'Sponsor profile not found'}, status=404)
+
     try:
-        driver_profile = DriverProfile.objects.get(user__id=driver_id)
-        points = driver_profile.current_points
-        return JsonResponse({'status': 'success', 'points': points})
-    except DriverProfile.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Driver not found'}, status=404)
+        ds = DriverSponsor.objects.get(
+            sponsor=sponsor_profile,
+            driver__user__id=driver_id,
+            approved=True
+        )
+        return JsonResponse({'status': 'success', 'points': ds.points})
+    except DriverSponsor.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Driver not linked to you'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
