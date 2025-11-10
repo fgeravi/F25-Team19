@@ -18,34 +18,70 @@ def point_dashboard(request):
     if not request.user.is_driver:
         return redirect('home')
 
+    # Inputs
     search_query = request.GET.get('q', '')
     sort_order = request.GET.get('sort', '-date')
+    selected_sponsor_id = request.GET.get('sponsor')  # sponsor profile id
 
     valid_sort_orders = ['date', '-date', 'point_change_amt', '-point_change_amt']
     if sort_order not in valid_sort_orders:
         sort_order = '-date'
+
     try:
         driver_profile = request.user.driverprofile
-        current_balance = driver_profile.current_points
 
-        transactions = PointChangeAudit.objects.filter(driver=request.user)
+        # All approved sponsor links for this driver (used to populate the switcher)
+        sponsorships = (
+            DriverSponsor.objects
+            .filter(driver=driver_profile, approved=True)
+            .select_related('sponsor__user', 'sponsor__organization')
+            .order_by('sponsor__company_name', 'sponsor__user__username')
+        )
 
-        if search_query:
-            transactions = transactions.filter(reason__icontains=search_query)
+        # If the driver has no sponsors yet, keep previous behavior but show empty state
+        if not sponsorships.exists():
+            current_balance = 0
+            transactions = PointChangeAudit.objects.none()
+            weekly_earnings = 0
+            selected_ds = None
+        else:
+            # Pick selected sponsor (by SponsorProfile.id) or default to first
+            if selected_sponsor_id:
+                selected_ds = sponsorships.filter(sponsor_id=selected_sponsor_id).first()
+                if not selected_ds:
+                    selected_ds = sponsorships.first()
+            else:
+                selected_ds = sponsorships.first()
 
-        transactions = transactions.order_by(sort_order)
+            # Per-sponsor current balance comes from DriverSponsor.points
+            current_balance = selected_ds.points
 
-        seven_days_ago = timezone.now() - timedelta(days=7)
-        weekly_earnings = PointChangeAudit.objects.filter(
-            driver=request.user,
-            date__gte=seven_days_ago,
-            point_change_amt__gt=0
-        ).aggregate(total=Sum('point_change_amt'))['total'] or 0
+            # Transactions limited to this driver + this sponsor (per-sponsor audit trail)
+            transactions = PointChangeAudit.objects.filter(
+                driver=request.user,
+                sponsor=getattr(selected_ds.sponsor, "user", None)
+            )
+
+            if search_query:
+                transactions = transactions.filter(reason__icontains=search_query)
+
+            transactions = transactions.order_by(sort_order)
+
+            # Weekly earnings for this sponsor only
+            seven_days_ago = timezone.now() - timedelta(days=7)
+            weekly_earnings = PointChangeAudit.objects.filter(
+                driver=request.user,
+                sponsor=getattr(selected_ds.sponsor, "user", None),
+                date__gte=seven_days_ago,
+                point_change_amt__gt=0
+            ).aggregate(total=Sum('point_change_amt'))['total'] or 0
 
     except DriverProfile.DoesNotExist:
+        sponsorships = DriverSponsor.objects.none()
         current_balance = 0
-        transactions = []
+        transactions = PointChangeAudit.objects.none()
         weekly_earnings = 0
+        selected_ds = None
 
     context = {
         'current_balance': current_balance,
@@ -53,6 +89,11 @@ def point_dashboard(request):
         'weekly_earnings': weekly_earnings,
         'search_query': search_query,
         'sort_order': sort_order,
+
+        # NEW: data for the sponsor switcher
+        'sponsorships': sponsorships,                 # list of DriverSponsor rows
+        'selected_sponsor': selected_ds.sponsor if selected_ds else None,
+        'selected_sponsor_id': selected_ds.sponsor.id if selected_ds else '',
     }
     return render(request, 'rewards/dashboard.html', context)
 

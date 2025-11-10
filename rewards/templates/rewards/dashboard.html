@@ -5,13 +5,50 @@
     <h1>My Points Dashboard</h1>
     <hr>
 
-    {% with org=request.user.driverprofile.organization %}
-        {% if org and org.welcome_config and org.welcome_config.is_active and org.welcome_config.welcome_text %}
-            <div class="alert alert-info my-3" role="alert" style="white-space: pre-line;">
-                {{ org.welcome_config.welcome_text }}
-            </div>
-        {% endif %}
-    {% endwith %}
+    {# -------- Sponsor Switcher (only if driver has sponsors) -------- #}
+    {% if sponsorships and sponsorships|length > 0 %}
+      <form method="get" class="row g-2 align-items-end mb-3">
+        {# Preserve existing query/sort when switching sponsors #}
+        <input type="hidden" name="q" value="{{ search_query }}">
+        <input type="hidden" name="sort" value="{{ sort_order }}">
+
+        <div class="col-md-6">
+          <label for="sponsor" class="form-label">Sponsor</label>
+          <select id="sponsor" name="sponsor" class="form-select" onchange="this.form.submit()">
+            {% for link in sponsorships %}
+              <option value="{{ link.sponsor.id }}" {% if link.sponsor.id|stringformat:"s" == selected_sponsor_id|stringformat:"s" %}selected{% endif %}>
+                {{ link.sponsor.company_name }} — {{ link.points }} pts
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-6 text-end">
+          {% if selected_sponsor and selected_sponsor.organization %}
+            <a class="btn btn-outline-primary mt-4"
+               href="{% url 'catalogue:view_catalogue' selected_sponsor.organization.id %}">
+              Browse {{ selected_sponsor.company_name }} Catalogue
+            </a>
+          {% endif %}
+        </div>
+      </form>
+
+      {# Optional sponsor-specific welcome, if configured on org #}
+      {% if selected_sponsor and selected_sponsor.organization and selected_sponsor.organization.welcome_config and selected_sponsor.organization.welcome_config.is_active and selected_sponsor.organization.welcome_config.welcome_text %}
+        <div class="alert alert-info my-3" role="alert" style="white-space: pre-line;">
+            {{ selected_sponsor.organization.welcome_config.welcome_text }}
+        </div>
+      {% endif %}
+    {% else %}
+      {# Fallback to your original welcome (no sponsors yet) #}
+      {% with org=request.user.driverprofile.organization %}
+          {% if org and org.welcome_config and org.welcome_config.is_active and org.welcome_config.welcome_text %}
+              <div class="alert alert-info my-3" role="alert" style="white-space: pre-line;">
+                  {{ org.welcome_config.welcome_text }}
+              </div>
+          {% endif %}
+      {% endwith %}
+    {% endif %}
 
     <div class="card text-center mb-4">
         <div class="card-header">
@@ -36,6 +73,10 @@
     <h3>Transaction History</h3>
 
     <form method="get" class="mb-3">
+        {# Keep current sponsor selection when filtering #}
+        {% if selected_sponsor_id %}
+          <input type="hidden" name="sponsor" value="{{ selected_sponsor_id }}">
+        {% endif %}
         <div class="input-group">
             <input type="text" name="q" class="form-control" placeholder="Search by reason..." value="{{ search_query }}">
             <select name="sort" class="form-select" style="max-width: 200px;">
