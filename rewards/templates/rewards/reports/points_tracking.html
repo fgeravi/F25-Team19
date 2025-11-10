@@ -7,14 +7,14 @@
 
   <form method="get" class="row g-3 mb-3">
     <div class="col-md-3">
-      <label class="form-label">Start</label>
-      <input type="date" name="start" class="form-control" value="{{ start|date:'Y-m-d' }}">
+      <label class="form-label">Start Date</label>
+      <input type="date" name="start" class="form-control" value="{{ start|date:'Y-m-d' }}" placeholder="YYYY-MM-DD">
     </div>
     <div class="col-md-3">
-      <label class="form-label">End</label>
-      <input type="date" name="end" class="form-control" value="{{ end|date:'Y-m-d' }}">
+      <label class="form-label">End Date</label>
+      <input type="date" name="end" class="form-control" value="{{ end|date:'Y-m-d' }}" placeholder="YYYY-MM-DD">
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <label class="form-label">Driver</label>
       <select name="driver" class="form-select">
         <option value="">All Drivers</option>
@@ -25,16 +25,49 @@
         {% endfor %}
       </select>
     </div>
-    <div class="col-md-2 d-flex align-items-end">
+    <div class="col-md-2">
+      <label class="form-label">Sort by Date</label>
+      <select name="sort" class="form-select">
+        <option value="desc" {% if sort_order == "desc" %}selected{% endif %}>Newest First</option>
+        <option value="asc" {% if sort_order == "asc" %}selected{% endif %}>Oldest First</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-flex align-items-end">
       <button type="submit" class="btn btn-primary w-100">Filter</button>
     </div>
   </form>
 
   <div class="mb-3">
     <a class="btn btn-outline-secondary"
-       href="{% url 'rewards:points_report_csv' %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}{% if driver_id %}&driver={{ driver_id }}{% endif %}">
+       href="{% url 'rewards:points_report_csv' %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}{% if driver_id %}&driver={{ driver_id }}{% endif %}&sort={{ sort_order }}">
       Download CSV
     </a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header bg-info text-white">
+      <h5 class="mb-0">📊 Report Legend</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-6">
+          <h6>Column Descriptions:</h6>
+          <ul class="small">
+            <li><strong>Driver:</strong> Username of the driver whose points changed</li>
+            <li><strong>Change:</strong> Point adjustment (+ for additions, - for deductions)</li>
+            <li><strong>Date:</strong> When the point change occurred</li>
+          </ul>
+        </div>
+        <div class="col-md-6">
+          <h6>&nbsp;</h6>
+          <ul class="small">
+            <li><strong>Changed By:</strong> Sponsor who made the adjustment</li>
+            <li><strong>Reason:</strong> Explanation for the point change</li>
+            <li><strong>New Balance:</strong> Driver's total points after this change</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 
   <table class="table table-striped">
