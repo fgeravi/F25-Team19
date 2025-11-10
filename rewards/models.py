@@ -2,7 +2,7 @@ from django.db import models
 from django.conf import settings
 from django.db import transaction
 from organizations.models import Organization
-from users.models import SponsorProfile, DriverNotification  # ← added DriverNotification import
+from users.models import SponsorProfile, DriverNotification, DriverSponsor  # <-- added DriverSponsor import
 
 class PointChangeAudit(models.Model):
     # Not on ERD, but added to track which organization the sponsor was in when points were awarded.
@@ -38,23 +38,35 @@ class PointChangeAudit(models.Model):
 
 def award_points_to_driver(sponsor_user, driver_user, points, reason=""):
     """
-    Atomically adjust the driver's balance, write an audit row, and
-    send an in-app notification that includes the sponsor's personalized reason.
+    Atomically adjust the sponsor-specific driver balance (DriverSponsor.points),
+    write an audit row, and send an in-app notification.
+
+    This enforces that the driver is linked to the sponsor (approved=True) and
+    prevents balances from going negative.
     """
     try:
         with transaction.atomic():
-            driver_profile = driver_user.driverprofile
+            # Ensure sponsor profile exists
+            sponsor_profile = SponsorProfile.objects.select_for_update().get(user=sponsor_user)
+            organization = sponsor_profile.organization
 
-            new_balance = driver_profile.current_points + points
+            # Ensure driver is linked to this sponsor (and lock the row for concurrent safety)
+            ds = DriverSponsor.objects.select_for_update().get(
+                sponsor=sponsor_profile,
+                driver=driver_user.driverprofile,
+                approved=True
+            )
+
+            # Compute new sponsor-specific balance
+            new_balance = ds.points + points
             if new_balance < 0:
                 raise ValueError("Point balance cannot be negative.")
 
-            driver_profile.current_points = new_balance
-            driver_profile.save()
+            # Persist the new balance on the DriverSponsor relation
+            ds.points = new_balance
+            ds.save(update_fields=["points"])
 
-            sponsor_profile = SponsorProfile.objects.get(user=sponsor_user)
-            organization = sponsor_profile.organization
-
+            # Write audit with sponsor-specific new balance
             audit = PointChangeAudit.objects.create(
                 organization=organization,
                 driver=driver_user,
@@ -64,7 +76,7 @@ def award_points_to_driver(sponsor_user, driver_user, points, reason=""):
                 new_point_balance=new_balance
             )
 
-            # Personalize messages, Example message: "+25 points from ACME: Safe driving"
+            # Send in-app notification to the driver
             sign = "+" if points >= 0 else ""
             sponsor_name = sponsor_user.username if sponsor_user else "Sponsor"
             content = f"{sign}{points} points from {sponsor_name}: {reason or 'No reason provided'}"
@@ -80,8 +92,11 @@ def award_points_to_driver(sponsor_user, driver_user, points, reason=""):
             )
 
         return True, "Points updated and driver notified."
+
     except SponsorProfile.DoesNotExist:
         return False, "Sponsor profile not found."
+    except DriverSponsor.DoesNotExist:
+        return False, "Driver is not linked to this sponsor."
     except ValueError as e:
         return False, str(e)
     except Exception as e:
