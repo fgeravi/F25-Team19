@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "about",
     "organizations",
     "rewards",
+    "issues",
     "applications",
     "audit.apps.AuditConfig",
     "notifications.apps.NotificationsConfig",

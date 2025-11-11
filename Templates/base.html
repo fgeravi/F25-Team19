@@ -77,6 +77,9 @@
               {{ user.driverprofile.current_points }} pts
             </span>
           {% endif %}
+          
+          <a href="{% url 'submit_issue' %}" class="link-button">Report Issue</a>
+
           <a href="{% url 'account_management' %}" class="link-button">Edit account</a>
           <form action="{% url 'logout' %}" method="post">
             {% csrf_token %}

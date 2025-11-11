@@ -35,6 +35,7 @@ urlpatterns = [
     path("apply/", include("applications.urls")),
     path('catalog/', include('catalogue.urls')),
     path('audit/', include(('audit.urls', "audit"), namespace="audit")),
+    path('issues/', include('issues.urls')),
     path('accounts/password/change/', auth_views.PasswordChangeView.as_view(), name='password_change'),
     path('accounts/password/change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),
     path('notifications/', include('notifications.urls')),
