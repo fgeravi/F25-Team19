@@ -22,6 +22,10 @@ def point_dashboard(request):
     search_query = request.GET.get('q', '')
     sort_order = request.GET.get('sort', '-date')
     selected_sponsor_id = request.GET.get('sponsor')  # sponsor profile id
+    
+    period = request.GET.get('period', 'weekly')
+    if period not in ['weekly', 'monthly']:
+        period = 'weekly'
 
     valid_sort_orders = ['date', '-date', 'point_change_amt', '-point_change_amt']
     if sort_order not in valid_sort_orders:
@@ -42,7 +46,7 @@ def point_dashboard(request):
         if not sponsorships.exists():
             current_balance = 0
             transactions = PointChangeAudit.objects.none()
-            weekly_earnings = 0
+            earnings = 0 # MODIFIED
             selected_ds = None
         else:
             # Pick selected sponsor (by SponsorProfile.id) or default to first
@@ -67,12 +71,15 @@ def point_dashboard(request):
 
             transactions = transactions.order_by(sort_order)
 
-            # Weekly earnings for this sponsor only
-            seven_days_ago = timezone.now() - timedelta(days=7)
-            weekly_earnings = PointChangeAudit.objects.filter(
+            if period == 'monthly':
+                start_date = timezone.now() - timedelta(days=30)
+            else: 
+                start_date = timezone.now() - timedelta(days=7)
+
+            earnings = PointChangeAudit.objects.filter(
                 driver=request.user,
                 sponsor=getattr(selected_ds.sponsor, "user", None),
-                date__gte=seven_days_ago,
+                date__gte=start_date,
                 point_change_amt__gt=0
             ).aggregate(total=Sum('point_change_amt'))['total'] or 0
 
@@ -80,18 +87,17 @@ def point_dashboard(request):
         sponsorships = DriverSponsor.objects.none()
         current_balance = 0
         transactions = PointChangeAudit.objects.none()
-        weekly_earnings = 0
+        earnings = 0
         selected_ds = None
 
     context = {
         'current_balance': current_balance,
         'transactions': transactions,
-        'weekly_earnings': weekly_earnings,
+        'earnings': earnings, 
+        'period': period,              
         'search_query': search_query,
         'sort_order': sort_order,
-
-        # NEW: data for the sponsor switcher
-        'sponsorships': sponsorships,                 # list of DriverSponsor rows
+        'sponsorships': sponsorships,
         'selected_sponsor': selected_ds.sponsor if selected_ds else None,
         'selected_sponsor_id': selected_ds.sponsor.id if selected_ds else '',
     }

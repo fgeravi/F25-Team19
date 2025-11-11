@@ -8,9 +8,10 @@
     {# -------- Sponsor Switcher (only if driver has sponsors) -------- #}
     {% if sponsorships and sponsorships|length > 0 %}
       <form method="get" class="row g-2 align-items-end mb-3">
-        {# Preserve existing query/sort when switching sponsors #}
+        {# Preserve existing query/sort/period when switching sponsors #}
         <input type="hidden" name="q" value="{{ search_query }}">
         <input type="hidden" name="sort" value="{{ sort_order }}">
+        <input type="hidden" name="period" value="{{ period }}">
 
         <div class="col-md-6">
           <label for="sponsor" class="form-label">Sponsor</label>
@@ -50,22 +51,36 @@
       {% endwith %}
     {% endif %}
 
-    <div class="card text-center mb-4">
-        <div class="card-header">
-            Current Point Balance
-        </div>
-        <div class="card-body">
-            <h2 class="card-title">{{ current_balance }} Points</h2>
-        </div>
-    </div>
-
-    <div class="col-md-6 mb-4">
-        <div class="card text-center text-white bg-success">
-            <div class="card-header">
-                Points Earned This Week
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card text-center">
+                <div class="card-header">
+                    Current Point Balance
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">{{ current_balance }} Points</h2>
+                </div>
             </div>
-            <div class="card-body">
-                <h2 class="card-title">+{{ weekly_earnings }} Points</h2>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card text-center text-white bg-success">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Points Earned</span>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="?period=weekly&sponsor={{ selected_sponsor_id }}&q={{ search_query }}&sort={{ sort_order }}" 
+                           class="btn btn-sm {% if period == 'weekly' %}btn-light{% else %}btn-outline-light{% endif %}">
+                           Week
+                        </a>
+                        <a href="?period=monthly&sponsor={{ selected_sponsor_id }}&q={{ search_query }}&sort={{ sort_order }}" 
+                           class="btn btn-sm {% if period == 'monthly' %}btn-light{% else %}btn-outline-light{% endif %}">
+                           Month
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h2 class="card-title">+{{ earnings }} Points</h2>
+                </div>
             </div>
         </div>
     </div>
@@ -73,10 +88,12 @@
     <h3>Transaction History</h3>
 
     <form method="get" class="mb-3">
-        {# Keep current sponsor selection when filtering #}
+        {# Keep current sponsor and period selection when filtering #}
         {% if selected_sponsor_id %}
           <input type="hidden" name="sponsor" value="{{ selected_sponsor_id }}">
         {% endif %}
+        <input type="hidden" name="period" value="{{ period }}">
+
         <div class="input-group">
             <input type="text" name="q" class="form-control" placeholder="Search by reason..." value="{{ search_query }}">
             <select name="sort" class="form-select" style="max-width: 200px;">
