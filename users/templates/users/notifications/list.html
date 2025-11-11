@@ -1,34 +1,41 @@
 {% extends "base.html" %}
 {% block title %}Notifications{% endblock %}
+
 {% block content %}
-<h2>Notifications</h2>
+<div class="container panel" style="max-width:820px;margin:24px auto;">
+  <h1 style="margin-top:0;">Notifications</h1>
 
-{% if messages %}
-  <ul>
-    {% for m in messages %}
-      <li>{{ m }}</li>
-    {% endfor %}
-  </ul>
-{% endif %}
+  {% if notifications %}
+    <ul style="list-style:none;padding:0;margin:0;">
+      {% for n in notifications %}
+        <li class="card" style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div>
+              <div style="font-weight:600;">{{ n.content }}</div>
+              {% if n.metadata and n.metadata.new_balance %}
+                <div class="text-muted small">New balance: {{ n.metadata.new_balance }}</div>
+              {% endif %}
+              <div class="text-muted small">{{ n.created_at|date:"N j, Y, P" }}</div>
+            </div>
 
-<ul>
-  {% for n in notifications %}
-    <li style="margin: .5rem 0; padding:.5rem; border:1px solid #ddd; border-radius:.25rem;">
-      <div>
-        <strong>{{ n.sent_at }}</strong>
-        {% if n.is_read %}<span style="opacity:.6;">(read)</span>{% else %}<span>(new)</span>{% endif %}
-      </div>
-      <div>{{ n.content|linebreaksbr }}</div>
-      {% if n.metadata.type %}<small>Type: {{ n.metadata.type }}</small>{% endif %}
-      {% if not n.is_read %}
-        <form method="post" action="{% url 'notification_mark_read' n.pk %}" style="margin-top:.25rem;">
-          {% csrf_token %}
-          <button type="submit">Mark as read</button>
-        </form>
-      {% endif %}
-    </li>
-  {% empty %}
-    <li>No notifications yet.</li>
-  {% endfor %}
-</ul>
+            <div style="display:flex;gap:8px;align-items:center;">
+              {% if not n.is_read %}
+                <form action="{% url 'notification_mark_read' n.id %}" method="post">
+                  {% csrf_token %}
+                  <button class="btn-pill btn-outline" type="submit">Mark read</button>
+                </form>
+              {% endif %}
+              <form action="{% url 'notification_delete' n.id %}" method="post" onsubmit="return confirm('Delete this notification?');">
+                {% csrf_token %}
+                <button class="btn-pill btn-outline" type="submit">Delete</button>
+              </form>
+            </div>
+          </div>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="text-muted">No notifications yet.</p>
+  {% endif %}
+</div>
 {% endblock %}

@@ -7,6 +7,10 @@ from .forms import LockedOutAuthenticationForm
 from .forms import NotificationPreferenceForm
 from django.contrib.auth.decorators import login_required
 from .models import DriverNotification  # NEW import
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from .models import DriverNotification
 # Password Change addition
 from django.contrib.auth.views import PasswordChangeView
 from django.urls import reverse_lazy
@@ -573,6 +577,15 @@ def view_sponsors_list(request):
         'sponsors': sponsors
     }
     return render(request, 'users/view_sponsors.html', context)
+
+@login_required
+def notification_delete(request, pk: int):
+    """Delete a single notification owned by the current user."""
+    notif = get_object_or_404(DriverNotification, pk=pk, driver_user=request.user)
+    if request.method == "POST":
+        notif.delete()
+        messages.success(request, "Notification deleted.")
+    return redirect('notifications_list')
 
 @staff_member_required
 def admin_import_users_view(request):

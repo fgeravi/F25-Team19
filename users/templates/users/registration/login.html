@@ -1,60 +1,45 @@
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Sign in{% endblock %}
 
 {% block content %}
-<div style="max-width:400px; margin:4rem auto; text-align:center;">
-  <h1>Login</h1>
+<main id="content" class="auth-wrap">
+  <section class="auth-card">
+    <h1 class="auth-title">Welcome back</h1>
+    <p class="auth-subtitle">Sign in to continue</p>
 
-  <form method="post" action="{% url 'login' %}" style="text-align:left; margin-top:1rem;" novalidate>
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-
-    {% if message %}
-      <div class="alert alert-danger" role="alert" style="color:#b00020; background:#ffdada; padding:0.75rem 1rem; border-radius:4px; margin-bottom:1rem;">
-        {{ message }}
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <div class="form-group">
+        <label for="id_username">Email or Username</label>
+        <input type="text" name="username" id="id_username" required autofocus
+               value="{{ form.username.value|default_if_none:'' }}">
       </div>
-    {% endif %}
 
-    <div style="margin-bottom:1rem;">
-      <label for="id_username" style="display:block; font-weight:600; margin-bottom:0.25rem;">
-        Username
-      </label>
-      {{ form.username }}
+      <div class="form-group">
+        <label for="id_password">Password</label>
+        <input type="password" name="password" id="id_password" required>
+      </div>
+
+      {% if form.remember_me %}
+      <div class="form-row-between">
+        <label class="checkbox">
+          {{ form.remember_me }} Keep me signed in
+        </label>
+      </div>
+      {% endif %}
+
+      {% if message %}
+        <div class="alert alert-warning" style="margin-top:8px;">{{ message }}</div>
+      {% endif %}
+
+      <button type="submit" class="btn-auth btn-auth-lg">Sign in</button>
+    </form>
+
+    <div class="auth-links">
+      <a href="{% url 'register' %}">Create account</a>
+      <span>•</span>
+      <a href="/admin/">Admin</a>
     </div>
-
-    <div style="margin-bottom:1rem;">
-      <label for="id_password" style="display:block; font-weight:600; margin-bottom:0.25rem;">
-        Password
-      </label>
-      {{ form.password }}
-    </div>
-
-    <div style="margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem;">
-      {{ form.remember_me }}
-      <label for="{{ form.remember_me.id_for_label }}">Remember me</label>
-    </div>
-
-    {% if next %}
-      <input type="hidden" name="next" value="{{ next }}">
-    {% endif %}
-
-    <button type="submit" style="
-      background:#007bff; color:white; border:none; padding:0.6rem 1rem;
-      border-radius:4px; cursor:pointer; width:100%; font-size:1rem; font-weight:600;">
-      Log in
-    </button>
-  </form>
-
-  <p style="margin-top:1rem;">
-    <a href="{% url 'password_reset' %}">Forgot your password?</a>
-  </p>
-
-  <p style="margin-top:0.5rem;">
-    Don’t have an account? <a href="{% url 'register' %}">Sign up here</a>
-  </p>
-
-  <p style="margin-top:0.5rem; font-size:0.9rem; color:#777;">
-    Admins: please use <a href="/admin/">/admin/</a> instead.
-  </p>
-</div>
+  </section>
+</main>
 {% endblock %}

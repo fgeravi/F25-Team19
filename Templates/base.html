@@ -3,146 +3,18 @@
   <head>
     <meta charset="utf-8">
     <title>{% block title %}My Site{% endblock %}</title>
+    {% load static %}
     {% load notifications_extras %}
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    <style>
-      /* --- General body styling --- */
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 20px;
-        background: #f5f5f5;
-        color: #333;
-      }
-
-      /* --- Navigation & user bar --- */
-      .top-nav {
-        background: #fff;
-        padding: 10px 15px;
-        border-radius: 6px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      }
-
-      a {
-        color: #007bff;
-        text-decoration: none;
-        margin-right: 10px;
-      }
-
-      a:hover {
-        text-decoration: underline;
-      }
-
-      .link-button {
-        background: none;
-        border: none;
-        color: #007bff;
-        cursor: pointer;
-        font-size: 1em;
-        padding: 0;
-        margin: 0;
-      }
-
-      .link-button:hover {
-        text-decoration: underline;
-      }
-
-      /* --- Message alerts --- */
-      .alert {
-        padding: 10px 15px;
-        margin-bottom: 10px;
-        border-radius: 4px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      }
-
-      .alert-success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-      .alert-warning { background-color: #fff3cd; border: 1px solid #ffeeba; color: #856404; }
-      .alert-info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-
-      #message-container {
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        width: 300px;
-        z-index: 1000;
-      }
-
-      .message-item {
-        margin-bottom: 10px;
-        animation: fadeOut 0.5s ease-in-out 5s forwards;
-      }
-
-      @keyframes fadeOut {
-        from { opacity: 1; }
-        to { opacity: 0; visibility: hidden; }
-      }
-
-      /* --- Session timeout modal --- */
-      #session-timeout-dialog {
-        display: none;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: #fff;
-        padding: 25px 30px;
-        border-radius: 8px;
-        border: 1px solid #ccc;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        z-index: 1000;
-        width: 320px;
-        text-align: center;
-      }
-
-      #session-timeout-dialog h3 {
-        margin-top: 0;
-      }
-
-      #session-timeout-dialog button {
-        padding: 8px 15px;
-        margin: 5px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.95em;
-      }
-
-      #session-timeout-dialog button:hover {
-        opacity: 0.9;
-      }
-
-      #session-timeout-dialog button:first-child {
-        background-color: #28a745;
-        color: #fff;
-      }
-
-      #session-timeout-dialog button:last-child {
-        background-color: #dc3545;
-        color: #fff;
-      }
-
-      #session-timeout-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 999;
-        animation: fadeIn 0.3s ease-in-out;
-      }
-
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-    </style>
+    <link rel="stylesheet" href="{% static 'css/newUiLook.css' %}">
   </head>
 
-  <body>
+  <body class="
+    {% if request.resolver_match and request.resolver_match.url_name == 'login' %}aurora-login{% endif %}
+    {% if request.resolver_match and request.resolver_match.url_name == 'home' %} home-aurora{% endif %}
+    {% if request.resolver_match and request.resolver_match.url_name == 'notifications_list' %} notifications-page{% endif %}
+  ">
     <!-- Hidden global CSRF token for AJAX -->
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
@@ -156,7 +28,6 @@
           {% endif %}
         {% endfor %}
       </div>
-
       <script>
         setTimeout(() => {
           const container = document.getElementById('message-container');
@@ -166,67 +37,112 @@
     {% endif %}
 
     {% if user.is_authenticated %}
-      <!-- Session Timeout Modal -->
-      <div id="session-timeout-dialog">
+      <!-- Top nav -->
+      <div class="top-nav">
+        <div class="nav-left">
+          <span class="brand">Hi {{ user.username }}</span>
+          <a href="{% url 'home' %}">Home</a>
+
+          {% if user.is_driver %}
+            {% if organization %}
+              <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a>
+            {% endif %}
+            <a href="{% url 'rewards:dashboard' %}">Points</a>
+            <a href="{% url 'catalogue:view_cart' %}">Cart</a>
+            <a href="{% url 'notification_preferences' %}">Alerts</a>
+          {% endif %}
+
+          {% unread_notifications_count as unread_count %}
+          {% with count=unread_count|default_if_none:0 %}
+            <a href="{% url 'notifications_list' %}">
+              {% if count %}Notifications ({{ count }}){% else %}Notifications{% endif %}
+            </a>
+          {% endwith %}
+
+          <!-- CSV link (teammate implementing backend) -->
+          <a href="{% url 'audit:report_csv' %}">Download Applications CSV</a>
+        </div>
+
+        <div class="nav-right">
+          {% if user.is_driver and user.driverprofile %}
+            <span class="points-badge" title="Your point balance">
+              {{ user.driverprofile.current_points }} pts
+            </span>
+          {% endif %}
+          <a href="{% url 'account_management' %}" class="link-button">Edit account</a>
+          <form action="{% url 'logout' %}" method="post">
+            {% csrf_token %}
+            <button type="submit" class="link-button">Logout</button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% comment %}
+      Session warning banner:
+      - Disabled on 'login' and 'home' so it won’t pop immediately after signing in.
+      - Runs on other pages only.
+    {% endcomment %}
+    {% if user.is_authenticated and request.resolver_match and request.resolver_match.url_name not in 'login home' %}
+      <div id="session-timeout-dialog" style="display:none;">
         <h3>Session Timeout Warning</h3>
-        <p>Your session will expire in <span id="session-countdown">60</span> seconds.</p>
+        <p>Your session will expire in <span id="session-countdown">600</span> seconds.</p>
         <button onclick="extendSession()">Extend Session</button>
         <button onclick="logout()">Logout Now</button>
       </div>
-      <div id="session-timeout-overlay"></div>
+      <div id="session-timeout-overlay" style="display:none;"></div>
 
       <script>
-        let timeoutWarning = 14 * 60 * 1000;
-        let timeoutNow = 15 * 60 * 1000;
+        // Client-side timers (pair with server settings)
+        // Show warning at 3h 50m, auto-logout at 4h.
+        let timeoutWarning = (3 * 60 + 50) * 60 * 1000;
+        let timeoutNow     =  4 * 60      * 60 * 1000;
+
         let warningTimer, timeoutTimer, countdownTimer;
-        let countdown = 60;
+        let countdown = 600; // 10 minutes in the modal
 
         function startTimers() {
           warningTimer = setTimeout(showWarning, timeoutWarning);
-          timeoutTimer = setTimeout(timeout, timeoutNow);
+          timeoutTimer = setTimeout(timeout,       timeoutNow);
         }
-
         function resetTimers() {
           clearTimeout(warningTimer);
           clearTimeout(timeoutTimer);
           clearInterval(countdownTimer);
           startTimers();
         }
-
         function showWarning() {
-          $('#session-timeout-dialog, #session-timeout-overlay').show();
-          countdown = 60;
+          const dlg = document.getElementById('session-timeout-dialog');
+          const ovl = document.getElementById('session-timeout-overlay');
+          if (!dlg || !ovl) return;
+          dlg.style.display = 'block';
+          ovl.style.display = 'block';
+          countdown = 600;
           countdownTimer = setInterval(updateCountdown, 1000);
         }
-
         function updateCountdown() {
           countdown--;
-          $('#session-countdown').text(countdown);
+          var el = document.getElementById('session-countdown');
+          if (el) el.textContent = countdown;
           if (countdown <= 0) timeout();
         }
-
-        function timeout() {
-          window.location.href = "{% url 'logout' %}";
-        }
-
+        function timeout() { window.location.href = "{% url 'logout' %}"; }
         function extendSession() {
           $.ajax({
             url: "{% url 'extend_session' %}",
             method: 'POST',
-            headers: {
-              'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
+            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value },
             success: function() {
-              $('#session-timeout-dialog, #session-timeout-overlay').hide();
+              document.getElementById('session-timeout-dialog').style.display = 'none';
+              document.getElementById('session-timeout-overlay').style.display = 'none';
               clearInterval(countdownTimer);
               resetTimers();
             }
           });
         }
-
-        function logout() {
-          window.location.href = "{% url 'logout' %}";
-        }
+        function logout() { window.location.href = "{% url 'logout' %}"; }
 
         $(document).ready(function() {
           startTimers();
@@ -236,37 +152,6 @@
       </script>
     {% endif %}
 
-    {% if user.is_authenticated %}
-      <p class="top-nav">
-        Hi {{ user.username }} |
-        <a href="{% url 'home' %}">Home</a> |
-
-        {% if user.is_driver %}
-          {% if organization %}
-            <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a> |
-          {% endif %}
-          <a href="{% url 'rewards:dashboard' %}">Points</a> |
-          <a href="{% url 'catalogue:view_cart' %}">🛒 Cart</a> |
-          <a href="{% url 'notification_preferences' %}">Alerts</a> |
-        {% endif %}
-
-        {% unread_notifications_count as unread_count %}
-        <a href="{% url 'notifications:list' %}">
-          Notifications{% if unread_count %} ({{ unread_count }}){% endif %}
-        </a> |
-
-        {% if user.is_staff or user.is_driver or user.is_sponsor %}
-          <a href="{% url 'audit:report_csv' %}">Download Applications CSV</a> |
-        {% endif %}
-
-        <form action="{% url 'logout' %}" method="post" style="display:inline;">
-          {% csrf_token %}
-          <button type="submit" class="link-button">Logout</button>
-        </form>
-      </p>
-    {% endif %}
-
-    {% block content %}{% endblock %}
     {% block extra_js %}{% endblock %}
   </body>
 </html>
