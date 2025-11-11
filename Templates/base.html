@@ -52,6 +52,11 @@
             <a href="{% url 'notification_preferences' %}">Alerts</a>
           {% endif %}
 
+          {% if user.is_sponsor and user.sponsorprofile %}
+            <a href="{% url 'catalogue:view_catalogue' sponsor_id=user.sponsorprofile.id %}">My Catalogue</a>
+            <a href="{% url 'catalogue:orders_csv' %}">Download Orders CSV</a>
+          {% endif %}
+
           {% unread_notifications_count as unread_count %}
           {% with count=unread_count|default_if_none:0 %}
             <a href="{% url 'notifications_list' %}">

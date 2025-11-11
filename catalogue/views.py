@@ -16,6 +16,13 @@ from users.models import SponsorProfile, DriverProfile, send_driver_notification
 from rewards.models import award_points_to_driver
 import requests
 
+# NEW: imports for CSV export
+import csv
+from django.http import HttpResponse
+from django.utils.dateparse import parse_date
+from django.utils.timezone import make_aware
+from datetime import datetime
+
 # --------------------------
 # External products for sponsors
 # --------------------------
@@ -450,3 +457,104 @@ def cancel_order(request, order_id):
 
     messages.success(request, f"Order #{order.id} cancelled and points refunded.")
     return redirect("catalogue:my_orders")
+
+
+@login_required
+def orders_csv(request):
+    """
+    Export this sponsor's orders as CSV (one row per order item).
+    Filters:
+      ?start=YYYY-MM-DD&end=YYYY-MM-DD&status=PENDING,APPROVED,FULFILLED,CANCELLED
+    """
+    # Only sponsors can export
+    if not getattr(request.user, "is_sponsor", False):
+        return HttpResponse("Forbidden", status=403, content_type="text/plain")
+
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile or not sponsor_profile.organization:
+        return HttpResponse("Sponsor profile not found.", status=400, content_type="text/plain")
+
+    start_s = request.GET.get("start") or ""
+    end_s = request.GET.get("end") or ""
+    status_s = request.GET.get("status") or "" 
+    statuses = [s.strip() for s in status_s.split(",") if s.strip()] or None
+
+    start_d = parse_date(start_s)
+    end_d = parse_date(end_s)
+
+    def day_start(d):
+        return make_aware(datetime(d.year, d.month, d.day))
+    def day_end(d): 
+        return make_aware(datetime(d.year, d.month, d.day, 23, 59, 59, 999999))
+
+    qs = (
+        Order.objects
+        .filter(organization=sponsor_profile.organization)
+        .select_related("driver")
+        .prefetch_related("items__catalogue_item")
+        .order_by("-created_at")
+    )
+
+    if start_d:
+        qs = qs.filter(created_at__gte=day_start(start_d))
+    if end_d:
+        qs = qs.filter(created_at__lte=day_end(end_d))
+    if statuses:
+        qs = qs.filter(status__in=statuses)
+
+    filename_parts = ["orders"]
+    if start_d: filename_parts.append(f"from-{start_d.isoformat()}")
+    if end_d:   filename_parts.append(f"to-{end_d.isoformat()}")
+    filename = "_".join(filename_parts) + ".csv"
+
+    resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    resp.write("\ufeff")  
+
+    writer = csv.writer(resp, lineterminator="\r\n")
+    writer.writerow([
+        "order_id",
+        "order_status",
+        "order_created_at",
+        "driver_username",
+        "item_product_name",
+        "item_product_id",
+        "item_quantity",
+        "points_each",
+        "points_line_total",
+        "order_total_points",
+    ])
+
+    for order in qs.iterator():
+        driver_username = getattr(order.driver, "username", "")
+
+        try:
+            order_points_total = sum(
+                (oi.price_each or 0) * (oi.quantity or 0)
+                for oi in order.items.all()
+            )
+        except Exception:
+            order_points_total = ""
+
+        for oi in order.items.all():
+            ci = getattr(oi, "catalogue_item", None)
+            product_name = getattr(oi, "product_name", "") or (getattr(ci, "product_name", "") if ci else "")
+            product_id = getattr(oi, "product_id", "") or (getattr(ci, "product_id", "") if ci else "")
+            qty = getattr(oi, "quantity", 1) or 1
+            pts_each = getattr(oi, "price_each", 0) or 0
+            pts_line = pts_each * qty
+
+            writer.writerow([
+                order.id,
+                order.status,
+                order.created_at.isoformat() if getattr(order, "created_at", None) else "",
+                driver_username,
+                product_name,
+                product_id,
+                qty,
+                pts_each,
+                pts_line,
+                order_points_total,
+            ])
+
+    return resp
