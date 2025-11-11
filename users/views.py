@@ -696,3 +696,36 @@ def login_view(request):
             msg = "Invalid credentials."
 
     return render(request, "users/registration/login.html", {"form": form, "message": msg})
+
+@login_required
+def driver_performance_view(request):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('home')
+
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect("home")
+
+    sort_param = request.GET.get('sort', '-points') 
+    valid_sorts = ['driver', '-driver', 'points', '-points']
+    if sort_param not in valid_sorts:
+        sort_param = '-points'
+
+    if 'driver' in sort_param:
+        order_by_field = 'driver__user__username' if sort_param == 'driver' else '-driver__user__username'
+    else:
+        order_by_field = sort_param  
+    sponsorships = (
+        DriverSponsor.objects
+        .filter(sponsor=sponsor_profile, approved=True)
+        .select_related('driver__user') 
+        .order_by(order_by_field)
+    )
+
+    context = {
+        'sponsorships': sponsorships,
+        'current_sort': sort_param,
+    }
+    return render(request, 'users/driver_performance.html', context)

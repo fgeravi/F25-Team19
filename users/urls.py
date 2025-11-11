@@ -37,6 +37,7 @@ urlpatterns = [
     path("manage-drivers/edit/<int:driver_id>/", views.edit_driver_view, name="edit_driver"),
     path("manage-drivers/export/", views.export_drivers_csv, name="export_drivers_csv"),
     path("account/point-value/", edit_point_value_view, name="edit_point_value"),
+    path('driver-performance/', views.driver_performance_view, name='driver_performance'),
 
     # --- Password Change (logged in) ---
     path("password-change/", AuditedPasswordChangeView.as_view(), name="password_change"),
