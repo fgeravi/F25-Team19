@@ -4,7 +4,7 @@
 <div class="container mt-4">
     <h1>Edit Driver: {{ driver_user.username }}</h1>
     <hr>
-    
+
     <form method="post">
         {% csrf_token %}
         
@@ -13,5 +13,24 @@
         <button type="submit" class="btn btn-primary">Save Changes</button>
         <a href="{% url 'manage_drivers' %}" class="btn btn-secondary">Cancel</a>
     </form>
+
+    <div class="card border-danger mt-5">
+        <div class="card-header bg-danger text-white">
+            Danger Zone
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Delete Driver Account</h5>
+            <p class="card-text">
+                This action is permanent and cannot be undone. All associated data, including point history, will be removed forever.
+            </p>
+            
+            <form action="{% url 'delete_driver' driver_user.id %}" method="post" onsubmit="return confirm('Are you ABSOLUTELY SURE you want to permanently delete this driver? This cannot be undone.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    Permanently Delete Driver
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}

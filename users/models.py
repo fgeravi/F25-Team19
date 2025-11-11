@@ -363,3 +363,25 @@ class DriverSponsor(models.Model):
 
     def __str__(self):
         return f"{self.driver.user.username} ↔ {self.sponsor.company_name}"
+
+
+class DeletionAuditLog(models.Model):
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        help_text="The user who performed the deletion.",
+        related_name="deletions_performed"
+    )
+    deleted_user_id = models.IntegerField()
+    deleted_user_username = models.CharField(max_length=150)
+    deleted_user_role = models.CharField(max_length=50, blank=True)
+    reason = models.TextField(blank=True, help_text="Optional reason for deletion.")
+    deleted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-deleted_at']
+
+    def __str__(self):
+        actor_name = getattr(self.actor, 'username', 'System')
+        return f"User '{self.deleted_user_username}' deleted by '{actor_name}' at {self.deleted_at}"

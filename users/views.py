@@ -17,7 +17,7 @@ from django.urls import reverse_lazy
 from django.utils.crypto import get_random_string
 from django.utils import timezone
 from audit.models import PasswordChange
-from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization, DriverSponsor
+from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization, DriverSponsor, DeletionAuditLog
 from django.contrib.admin.views.decorators import staff_member_required
 from .forms import DriverEditForm
 from django.db.models import Q
@@ -729,3 +729,34 @@ def driver_performance_view(request):
         'current_sort': sort_param,
     }
     return render(request, 'users/driver_performance.html', context)
+
+
+
+@login_required
+def delete_driver_view(request, driver_id):
+    if not request.user.is_sponsor:
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('home')
+
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile:
+        messages.error(request, "Your sponsor profile could not be found.")
+        return redirect("home")
+
+    driver_user = get_object_or_404(User, pk=driver_id, is_driver=True)
+    if not DriverSponsor.objects.filter(sponsor=sponsor_profile, driver__user=driver_user).exists():
+        messages.error(request, "You are not authorized to delete this driver.")
+        return redirect('manage_drivers')
+
+    DeletionAuditLog.objects.create(
+        actor=request.user,
+        deleted_user_id=driver_user.id,
+        deleted_user_username=driver_user.username,
+        deleted_user_role="Driver"
+    )
+
+    driver_username = driver_user.username
+    driver_user.delete()
+
+    messages.success(request, f"Driver account for '{driver_username}' has been permanently deleted.")
+    return redirect('manage_drivers')

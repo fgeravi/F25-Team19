@@ -33,6 +33,7 @@ urlpatterns = [
     path("manage-drivers/", views.manage_drivers_view, name="manage_drivers"),
     path("manage-drivers/add/", views.add_driver_view, name="add_driver"),
     path("manage-drivers/import/", views.import_drivers_view, name="import_drivers"),
+    path('drivers/<int:driver_id>/delete/', views.delete_driver_view, name='delete_driver'),
     path("manage-drivers/add-sponsor/", views.add_sponsor_view, name="add_sponsor"),
     path("manage-drivers/edit/<int:driver_id>/", views.edit_driver_view, name="edit_driver"),
     path("manage-drivers/export/", views.export_drivers_csv, name="export_drivers_csv"),

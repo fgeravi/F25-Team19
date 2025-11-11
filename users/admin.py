@@ -9,6 +9,7 @@ from .models import (
     FailedLoginAttempt,
     DriverChangeAudit,
     DriverSponsor,
+    DeletionAuditLog,
 )
 from .config import LockoutConfig
 from audit.models import PasswordChange
@@ -285,6 +286,23 @@ class DriverChangeAuditAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+@admin.register(DeletionAuditLog)
+class DeletionAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('deleted_at', 'actor', 'deleted_user_username', 'deleted_user_id', 'deleted_user_role')
+    list_filter = ('actor',)
+    search_fields = ('actor__username', 'deleted_user_username')
+    date_hierarchy = 'deleted_at'
+
+    readonly_fields = ('deleted_at', 'actor', 'deleted_user_id', 'deleted_user_username', 'deleted_user_role', 'reason')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 # --------------------------
 # PasswordChange Admin
