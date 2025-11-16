@@ -9,6 +9,14 @@
       <p class="text-muted" style="margin:0;">Your dashboard</p>
     </div>
 
+    {% if user.is_sponsor %}
+      <div class="btn-row mb-4">
+        <a href="{% url 'sponsor_applications' %}" class="btn-pill">
+          View Driver Applications
+        </a>
+      </div>
+    {% endif %}
+
     {% if user.is_driver %}
       <div class="btn-row">
         <a

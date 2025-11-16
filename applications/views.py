@@ -93,73 +93,37 @@ def update_application_status(request, app_id):
 
     application = get_object_or_404(DriverApplication, id=app_id)
     sponsor_profile = getattr(request.user, "sponsorprofile", None)
+
     if not sponsor_profile:
         messages.error(request, "You do not have a sponsor profile.")
         return redirect("home")
 
-    # Ensure sponsor owns this application
     if application.sponsor != sponsor_profile:
         messages.error(request, "You cannot update applications for other sponsors.")
         return redirect("sponsor_applications")
 
+    # Record the old status BEFORE updating
+    previous_status = application.status
+
     if request.method == "POST":
         form = ApplicationUpdateForm(request.POST, instance=application)
+
         if form.is_valid():
-            form.save()
-            from users.models import DriverProfile # old method (will phase out)
-            from users.models import DriverSponsor # new method
+            application = form.save(commit=False)
+            new_status = application.status
 
-            if application.status == "accepted":
-                
+            # ---- ACCEPT LOGIC ----
+            if new_status == "accepted":
+                handle_accept(application, sponsor_profile)
 
-                # create driver profile
-                driver_profile, created = DriverProfile.objects.get_or_create(
-                    user=application.driver,
-                    defaults={"organization": sponsor_profile.organization}
-                )
-                # create driverSponsor relationship
-                DriverSponsor.objects.get_or_create(
-                    driver = driver_profile,
-                    sponsor = sponsor_profile
+            # ---- DENY / UNACCEPT LOGIC ----
+            elif previous_status == "accepted" and new_status != "accepted":
+                handle_unaccept(application, sponsor_profile)
 
-                )
-
-                if created:
-                    messages.success(
-                        request,
-                        f"DriverProfile created for {application.driver.username} under {sponsor_profile.organization.name}."
-                    )
-                else:
-                    old_org = driver_profile.organization
-                    if old_org != sponsor_profile.organization:
-                        driver_profile.organization = sponsor_profile.organization
-                        driver_profile.save(update_fields=["organization"])
-                        old_org_name = old_org.name if old_org else "None"
-                        messages.info(
-                            request,
-                            f"{application.driver.username}'s profile updated from {old_org_name} to {sponsor_profile.organization.name}."
-                        )
-                    else:
-                        messages.info(
-                            request,
-                            f"{application.driver.username} is already part of {sponsor_profile.organization.name}."
-                        )
-            else:
-                # Status changed away from accepted → remove relationship
-                # Remove sponsor link
-                driver_profile = DriverProfile.objects.filter(user=application.driver).first()
-                if driver_profile and driver_profile.organization == sponsor_profile.organization:
-                    driver_profile.organization = None
-                    driver_profile.save(update_fields=["organization"])
-
-                # Remove DriverSponsor object
-                DriverSponsor.objects.filter(
-                    driver=driver_profile,
-                    sponsor=sponsor_profile
-                ).delete()
-
+            application.save()
             messages.success(request, "Application updated.")
             return redirect("sponsor_applications")
+
     else:
         form = ApplicationUpdateForm(instance=application)
 
@@ -167,6 +131,59 @@ def update_application_status(request, app_id):
         "application": application,
         "form": form
     })
+
+
+# ======================================================
+# Helper: Accept a driver
+# ======================================================
+def handle_accept(application, sponsor_profile):
+    from users.models import DriverProfile, DriverSponsor
+
+    driver = application.driver
+
+    # Create or fetch profile
+    driver_profile, created = DriverProfile.objects.get_or_create(
+        user=driver,
+        defaults={"organization": sponsor_profile.organization}
+    )
+
+    # If profile existed but org changed → update org
+    if not created and driver_profile.organization != sponsor_profile.organization:
+        driver_profile.organization = sponsor_profile.organization
+        driver_profile.save(update_fields=["organization"])
+
+    # Ensure DriverSponsor relationship exists
+    DriverSponsor.objects.get_or_create(
+        driver=driver_profile,
+        sponsor=sponsor_profile
+    )
+
+    return driver_profile
+
+
+# ======================================================
+# Helper: Undo acceptance (only when denying after accepted)
+# ======================================================
+def handle_unaccept(application, sponsor_profile):
+    from users.models import DriverProfile, DriverSponsor
+
+    driver = application.driver
+
+    driver_profile = DriverProfile.objects.filter(user=driver).first()
+    if not driver_profile:
+        return
+
+    # Remove org only if this sponsor was the one that accepted them
+    if driver_profile.organization == sponsor_profile.organization:
+        driver_profile.organization = None
+        driver_profile.save(update_fields=["organization"])
+
+    # Remove relationship
+    DriverSponsor.objects.filter(
+        driver=driver_profile,
+        sponsor=sponsor_profile
+    ).delete()
+
 
 
 
