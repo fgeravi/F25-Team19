@@ -52,6 +52,9 @@ urlpatterns = [
 
     # --- Session Management ---
     path("extend-session/", extend_session, name="extend_session"),
+
+    # --- Point expiration policy ---
+    path("sponsor/points-policy/", views.update_points_policy, name="update_points_policy"),
 ]
 
 # --- Password reset (email-to-token flow) ---

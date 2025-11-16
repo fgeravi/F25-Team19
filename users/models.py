@@ -37,6 +37,8 @@ class SponsorProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     company_name = models.CharField(max_length=255)
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    # Expiration policy (in days)
+    points_expiration_days = models.PositiveIntegerField(default=90, help_text="Number of days points are valid for drivers")
 
     def __str__(self):
         return f"{self.user.username} ({self.organization.name})"
@@ -355,14 +357,48 @@ class DriverSponsor(models.Model):
         related_name="drivers"
     )
     approved = models.BooleanField(default=True)
-    points = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ("driver", "sponsor")
 
+    @property
+    def points(self) -> int:
+        # sum non-expired points
+        return sum(pe.points for pe in self.point_entries.filter(expiry_at__gt=timezone.now()))
+
+
     def __str__(self):
         return f"{self.driver.user.username} ↔ {self.sponsor.company_name}"
+    
+def add_points(driver_sponsor: DriverSponsor, points: int):
+    # Use sponsor's expiration policy
+    expiry_days = driver_sponsor.sponsor.points_expiration_days
+    expiry = timezone.now() + timedelta(days=expiry_days)
+    
+    DriverSponsorPoints.objects.create(
+        driver_sponsor=driver_sponsor,
+        points=points,
+        expiry_at=expiry
+    )
+    
+    send_driver_notification(
+        driver_user=driver_sponsor.driver.user,
+        content=f"You received {points} points from {driver_sponsor.sponsor.company_name}. They will expire in {expiry_days} days.",
+        notif_type="points_change"
+    )
+
+def expire_points():
+    now = timezone.now()
+    expired_entries = DriverSponsorPoints.objects.filter(expiry_at__lte=now)
+    for entry in expired_entries:
+        entry.delete() 
+        send_driver_notification(
+            driver_user=entry.driver_sponsor.driver.user,
+            content=f"Some of your points from {entry.driver_sponsor.sponsor.company_name} have expired.",
+            notif_type="points_change"
+        )
+
 
 
 class DeletionAuditLog(models.Model):
@@ -385,3 +421,19 @@ class DeletionAuditLog(models.Model):
     def __str__(self):
         actor_name = getattr(self.actor, 'username', 'System')
         return f"User '{self.deleted_user_username}' deleted by '{actor_name}' at {self.deleted_at}"
+    
+class DriverSponsorPoints(models.Model):
+    driver_sponsor = models.ForeignKey(
+        "DriverSponsor",
+        on_delete=models.CASCADE,
+        related_name="point_entries"
+    )
+    points = models.PositiveIntegerField(default=0)
+    awarded_at = models.DateTimeField(auto_now_add=True)
+    expiry_at = models.DateTimeField()
+
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+        return timezone.now() >= self.expiry_at
+
+

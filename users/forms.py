@@ -255,3 +255,14 @@ class SponsorCreationForm(forms.ModelForm):
     
 class DriverImportForm(forms.Form):
     file = forms.FileField(label="Select a pipe-delimited text file (.txt)")
+
+class SponsorPointsPolicyForm(forms.ModelForm):
+    class Meta:
+        model = SponsorProfile
+        fields = ["points_expiration_days"]
+        widgets = {
+            "points_expiration_days": forms.NumberInput(attrs={"min": 1})
+        }
+        help_texts = {
+            "points_expiration_days": "Set the number of days points remain valid for your drivers."
+        }

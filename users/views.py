@@ -26,6 +26,7 @@ from django.http import HttpResponse
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth import authenticate, login, logout
 from .forms import LoginForm  # make sure this exists in users/forms.py per earlier step
+from .forms import SponsorPointsPolicyForm
 
 
 @login_required
@@ -760,3 +761,20 @@ def delete_driver_view(request, driver_id):
 
     messages.success(request, f"Driver account for '{driver_username}' has been permanently deleted.")
     return redirect('manage_drivers')
+
+@login_required
+def update_points_policy(request):
+    try:
+        sponsor_profile = request.user.sponsorprofile
+    except SponsorProfile.DoesNotExist:
+        return redirect("home")  # or show an error
+
+    if request.method == "POST":
+        form = SponsorPointsPolicyForm(request.POST, instance=sponsor_profile)
+        if form.is_valid():
+            form.save()
+            return redirect("home")  # redirect after saving
+    else:
+        form = SponsorPointsPolicyForm(instance=sponsor_profile)
+
+    return render(request, "users/update_points_policy.html", {"form": form})
