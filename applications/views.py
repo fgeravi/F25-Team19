@@ -9,6 +9,8 @@ import csv
 from .models import DriverApplication
 from .forms import ApplicationForm, ApplicationUpdateForm
 from users.models import is_driver, is_sponsor
+from django.urls import reverse
+from notifications.models import Notification
 
 # ---------------------------
 # Driver list of applications
@@ -42,23 +44,43 @@ def apply_to_sponsor(request):
             sponsor = form.cleaned_data["sponsor"]
 
             # Check if already applied
-            existing = DriverApplication.objects.filter(driver=request.user, sponsor=sponsor).first()
+            existing = DriverApplication.objects.filter(
+                driver=request.user,
+                sponsor=sponsor,
+            ).first()
             if existing:
                 messages.info(request, "You have already applied to this sponsor.")
                 return redirect("driver_applications_list")
 
-            # Create application
-            DriverApplication.objects.create(
+            # Create application 
+            application = DriverApplication.objects.create(
                 driver=request.user,
                 sponsor=sponsor,
                 message=form.cleaned_data.get("message", "")
             )
+
+            # Create notification for sponsor
+            sponsor_user = sponsor.user  
+            driver_name = request.user.get_full_name() or request.user.username
+
+            # Message text 
+            notif_message = f"{driver_name} has applied to your organization."
+
+            link = reverse("update_application_status", args=[application.pk])
+
+            Notification.objects.create(
+                user=sponsor_user,
+                message=notif_message,
+                link=link,
+            )
+
             messages.success(request, f"Application sent to {sponsor.user.username}.")
             return redirect("driver_applications_list")
     else:
         form = ApplicationForm()
 
     return render(request, "applications/apply.html", {"form": form})
+
 
 
 # -------------------------
