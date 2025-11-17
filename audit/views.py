@@ -13,6 +13,8 @@ from applications.models import DriverApplication
 from django.utils.dateparse import parse_date
 from itertools import chain
 from operator import attrgetter
+from rewards.models import PointChangeAudit
+from django.http import HttpResponse
 
 # Create your views here.
 
@@ -100,6 +102,7 @@ def audit_log_report(request):
     start = parse_date(request.GET.get("start", "") or "")
     end = parse_date(request.GET.get("end", "") or "")
     username_filter = request.GET.get("username", "").strip()
+    keyword = request.GET.get("keyword", "").strip().lower()
 
     # Collect events based on filter
     events = []
@@ -170,8 +173,37 @@ def audit_log_report(request):
                 'user_agent': '-'
             })
 
+    if event_type in ["all", "points"]:
+        points_qs = PointChangeAudit.objects.select_related('driver', 'sponsor').all()
+        if start:
+            points_qs = points_qs.filter(date__date__gte=start)
+        if end:
+            points_qs = points_qs.filter(date__date__lte=end)
+        if username_filter:
+            points_qs = points_qs.filter(driver__username__icontains=username_filter)
+        
+        for item in points_qs:
+            sponsor_name = item.sponsor.username if item.sponsor else 'System'
+            events.append({
+                'type': 'Point Change',
+                'user': item.driver.username,
+                'timestamp': item.date,
+                'ip': '-',
+                'details': f"Changed by {sponsor_name}: {'+' if item.point_change_amt > 0 else ''}{item.point_change_amt} points. Reason: {item.reason or 'No reason'}",
+                'user_agent': '-'
+            })
+
     # Sort by timestamp descending
     events.sort(key=lambda x: x['timestamp'], reverse=True)
+
+    # Apply keyword filter across all fields
+    if keyword:
+        filtered_events = []
+        for event in events:
+            searchable_text = f"{event['type']} {event['user']} {event['ip']} {event['details']} {event['user_agent']}".lower()
+            if keyword in searchable_text:
+                filtered_events.append(event)
+        events = filtered_events
 
     ctx = {
         'events': events,
@@ -179,6 +211,134 @@ def audit_log_report(request):
         'start': start,
         'end': end,
         'username_filter': username_filter,
+        'keyword': keyword,
         'is_admin': request.user.is_staff,
     }
     return render(request, "audit/audit_log_report.html", ctx)
+
+
+@login_required
+def audit_log_pdf_export(request):
+    """
+    Story 310: Export filtered audit log to PDF for sponsors
+    Uses browser's print-to-PDF functionality with a print-friendly template
+    """
+    if not (request.user.is_staff or getattr(request.user, "is_sponsor", False)):
+        messages.error(request, "Admin or Sponsor access required.")
+        return redirect("home")
+
+    # Get same filters as main report
+    event_type = request.GET.get("event_type", "all")
+    start = parse_date(request.GET.get("start", "") or "")
+    end = parse_date(request.GET.get("end", "") or "")
+    username_filter = request.GET.get("username", "").strip()
+    keyword = request.GET.get("keyword", "").strip().lower()
+
+    # Collect events (same logic as audit_log_report)
+    events = []
+
+    if event_type in ["all", "login"]:
+        login_qs = LoginAttempt.objects.all()
+        if start:
+            login_qs = login_qs.filter(timestamp__date__gte=start)
+        if end:
+            login_qs = login_qs.filter(timestamp__date__lte=end)
+        if username_filter:
+            login_qs = login_qs.filter(username__icontains=username_filter)
+        
+        for item in login_qs:
+            events.append({
+                'type': 'Login Attempt',
+                'user': item.username,
+                'timestamp': item.timestamp,
+                'ip': item.ip_address or '-',
+                'details': 'Success' if item.successful else 'Failed',
+            })
+
+    if event_type in ["all", "password"]:
+        password_qs = PasswordChange.objects.all()
+        if start:
+            password_qs = password_qs.filter(timestamp__date__gte=start)
+        if end:
+            password_qs = password_qs.filter(timestamp__date__lte=end)
+        if username_filter:
+            password_qs = password_qs.filter(username__icontains=username_filter)
+        
+        for item in password_qs:
+            events.append({
+                'type': 'Password Change',
+                'user': item.username,
+                'timestamp': item.timestamp,
+                'ip': item.ip_address or '-',
+                'details': 'Password changed successfully',
+            })
+
+    if event_type in ["all", "location"]:
+        location_qs = KnownLoginLocations.objects.select_related('user').all()
+        if start:
+            location_qs = location_qs.filter(first_seen__date__gte=start)
+        if end:
+            location_qs = location_qs.filter(first_seen__date__lte=end)
+        if username_filter:
+            location_qs = location_qs.filter(user__username__icontains=username_filter)
+        
+        for item in location_qs:
+            location_info = []
+            if item.city:
+                location_info.append(item.city)
+            if item.region:
+                location_info.append(item.region)
+            if item.country:
+                location_info.append(item.country)
+            location_str = ', '.join(location_info) if location_info else 'Unknown'
+            
+            events.append({
+                'type': 'New Login Location',
+                'user': item.user.username,
+                'timestamp': item.first_seen,
+                'ip': item.ip_address,
+                'details': f"{location_str} ({'Acknowledged' if item.acknowledged else 'Not acknowledged'})",
+            })
+
+    if event_type in ["all", "points"]:
+        points_qs = PointChangeAudit.objects.select_related('driver', 'sponsor').all()
+        if start:
+            points_qs = points_qs.filter(date__date__gte=start)
+        if end:
+            points_qs = points_qs.filter(date__date__lte=end)
+        if username_filter:
+            points_qs = points_qs.filter(driver__username__icontains=username_filter)
+        
+        for item in points_qs:
+            sponsor_name = item.sponsor.username if item.sponsor else 'System'
+            events.append({
+                'type': 'Point Change',
+                'user': item.driver.username,
+                'timestamp': item.date,
+                'ip': '-',
+                'details': f"Changed by {sponsor_name}: {'+' if item.point_change_amt > 0 else ''}{item.point_change_amt} points. Reason: {item.reason or 'No reason'}",
+            })
+
+    # Sort by timestamp descending
+    events.sort(key=lambda x: x['timestamp'], reverse=True)
+
+    # Apply keyword filter
+    if keyword:
+        filtered_events = []
+        for event in events:
+            searchable_text = f"{event['type']} {event['user']} {event['ip']} {event['details']}".lower()
+            if keyword in searchable_text:
+                filtered_events.append(event)
+        events = filtered_events
+
+    ctx = {
+        'events': events,
+        'event_type': event_type,
+        'start': start,
+        'end': end,
+        'username_filter': username_filter,
+        'keyword': keyword,
+        'generated_by': request.user.username,
+        'generated_at': datetime.now(),
+    }
+    return render(request, "audit/audit_log_pdf.html", ctx)
