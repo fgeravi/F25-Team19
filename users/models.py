@@ -10,6 +10,7 @@ from django.dispatch import receiver
 from organizations.models import Organization
 from .config import LockoutConfig
 from notifications.models import Notification
+from django.urls import reverse
 
 
 # ----------------------
@@ -183,15 +184,34 @@ def on_login_failed(sender, credentials, request, **kwargs):
         username=username,
         user=user,
         user_agent=request.META.get("HTTP_USER_AGENT") if request else None,
-        message="Failed login attempt"
+        message="Failed login attempt",
     )
 
     if not user:
         return
 
+    try:
+        ip_address = request.META.get("REMOTE_ADDR") if request else None
+        ip_display = ip_address or "an unknown location"
+
+        message = f"Failed login attempt on your account from {ip_display}."
+
+        try:
+            link = reverse("audit:audit_log_report") 
+        except Exception:
+            link = ""
+
+        Notification.objects.create(
+            user=user,
+            message=message,
+            link=link,
+        )
+    except Exception:
+        pass
+
     # Increment failed attempts for ALL users
     if user.lockout_until and user.lockout_until > timezone.now():
-        return  # Already locked out
+        return 
 
     user.failed_login_attempts += 1
 
@@ -200,10 +220,11 @@ def on_login_failed(sender, credentials, request, **kwargs):
         user.lockout_until = (
             timezone.now() + timedelta(minutes=minutes)
             if minutes > 0
-            else timezone.now() + timedelta(days=365*100)
+            else timezone.now() + timedelta(days=365 * 100)
         )
 
     user.save(update_fields=["failed_login_attempts", "lockout_until"])
+
 
 
 @receiver(user_logged_in)
