@@ -40,6 +40,8 @@ class SponsorProfile(models.Model):
     # Expiration policy (in days)
     points_expiration_days = models.PositiveIntegerField(default=90, help_text="Number of days points are valid for drivers")
 
+    notify_on_100_points = models.BooleanField(default=False,help_text="Notify me when any of my drivers reaches 100 points.")
+
     def __str__(self):
         return f"{self.user.username} ({self.organization.name})"
 
