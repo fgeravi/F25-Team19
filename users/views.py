@@ -60,7 +60,7 @@ def register(request):
         form = UserRegisterForm(request.POST)
         if form.is_valid():
             user = form.save(commit=False)
-            
+
             # Set role based on selection
             account_type = form.cleaned_data['account_type']
             if account_type == 'driver':
@@ -68,25 +68,34 @@ def register(request):
             elif account_type == 'sponsor':
                 user.is_sponsor = True
 
-            user.save()  # save the user
+            user.save()  # Save user
 
-            # Optionally, create the profile automatically
+            # Create related profiles
             if user.is_driver:
                 from .models import DriverProfile
                 DriverProfile.objects.create(user=user)
+
             elif user.is_sponsor:
-                from .models import SponsorProfile
-                from .models import SponsorProfile
+                from .models import SponsorProfile, Organization
+
+                # Get organization from form
                 organization = form.cleaned_data.get('organization')
-                if not organization:
-                    # fallback: pick first organization or show error
+
+                # Fallback if none chosen (shouldn't happen unless user is sponsor but didn't pick)
+                if organization is None:
                     organization = Organization.objects.first()
-                    SponsorProfile.objects.create(user=user, organization=organization)
+
+                # ALWAYS create sponsor profile
+                SponsorProfile.objects.create(
+                    user=user,
+                    organization=organization
+                )
 
             messages.success(request, f'Account created for {user.username}!')
             return redirect('login')
     else:
         form = UserRegisterForm()
+
     return render(request, 'users/registration/register.html', {'form': form})
 
 
