@@ -20,6 +20,16 @@
           Update point policy
         </a>
       </div>
+      <div class="btn-row mb-4">
+        <a href="{% url 'rewards:points_report' %}" class="btn-pill btn-info">
+          Driver Point Tracking Report
+        </a>
+      </div>
+      <div class="btn-row mb-4">
+        <a href="{% url 'audit:audit_log_report' %}" class="btn-pill btn-warning">
+          Audit Log Report
+        </a>
+      </div>
     {% endif %}
 
     {% if user.is_driver %}
