@@ -17,6 +17,8 @@ from django.urls import reverse_lazy
 from django.utils.crypto import get_random_string
 from django.utils import timezone
 from audit.models import PasswordChange
+from django.db.models import Sum, Value
+from django.db.models.functions import Coalesce
 from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization, DriverSponsor, DeletionAuditLog
 from django.contrib.admin.views.decorators import staff_member_required
 from .forms import DriverEditForm
@@ -718,7 +720,7 @@ def driver_performance_view(request):
         messages.error(request, "Your sponsor profile could not be found.")
         return redirect("home")
 
-    sort_param = request.GET.get('sort', '-points') 
+    sort_param = request.GET.get('sort', '-points')
     valid_sorts = ['driver', '-driver', 'points', '-points']
     if sort_param not in valid_sorts:
         sort_param = '-points'
@@ -726,11 +728,15 @@ def driver_performance_view(request):
     if 'driver' in sort_param:
         order_by_field = 'driver__user__username' if sort_param == 'driver' else '-driver__user__username'
     else:
-        order_by_field = sort_param  
+        order_by_field = 'total_points' if sort_param == 'points' else '-total_points'
+
     sponsorships = (
         DriverSponsor.objects
         .filter(sponsor=sponsor_profile, approved=True)
-        .select_related('driver__user') 
+        .select_related('driver__user')
+        .annotate(
+            total_points=Coalesce(Sum('point_entries__points'), Value(0))
+        )
         .order_by(order_by_field)
     )
 

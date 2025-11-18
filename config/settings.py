@@ -144,7 +144,6 @@ USE_TZ = True
 # =========================
 STATIC_URL = '/static/'
 
-# 👇 NEW: Tell Django where your “static/” folder is
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # Static root for collectstatic
@@ -153,7 +152,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # WhiteNoise storage
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-# 👇 NEW: Let WhiteNoise serve files from finders in DEBUG mode
 if DEBUG:
     WHITENOISE_USE_FINDERS = True
 
