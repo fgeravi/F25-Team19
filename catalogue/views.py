@@ -33,6 +33,7 @@ def external_products(request, sponsor_id):
     Only the sponsor themselves can view this page.
     """
     sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
+    org = sponsor.organization
 
     # Check that the logged-in user is the sponsor
     if request.user != sponsor.user:
@@ -46,9 +47,14 @@ def external_products(request, sponsor_id):
         messages.error(request, "Failed to fetch products from the external API.")
         products = []
 
+    # modify price -> points
+    for product in products:
+        product["price"] = round(product["price"] / org.point_value_usd)
+
     return render(request, "catalogue/external_products.html", {
         "sponsor": sponsor,
         "products": products,
+        "org": org
     })
 
 
@@ -58,6 +64,7 @@ def add_product_to_catalogue(request, sponsor_id, product_id):
     Add a product to the sponsor's personal catalogue.
     """
     sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
+    org = sponsor.organization
 
     # Only allow the sponsor themselves
     if request.user != sponsor.user:
@@ -78,13 +85,16 @@ def add_product_to_catalogue(request, sponsor_id, product_id):
 
     product_data = response.json()
 
+    # convert $ -> points
+    price_points = round(product_data["price"] / org.point_value_usd)
+
     CatalogueItem.objects.get_or_create(
         catalogue=catalogue,
         product_id=str(product_data["id"]),
         defaults={
             "product_name": product_data["title"],
             "product_url": f"https://fake-store-api.com/products/{product_data['id']}",
-            "price": product_data["price"],
+            "price": price_points,
             "image_url": product_data["images"][0] if product_data.get("images") else None,
             "category": product_data.get("category", {}).get("name", "Uncategorized"),
         }
