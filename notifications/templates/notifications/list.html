@@ -4,6 +4,10 @@
 <h2>Notifications</h2>
 <p>
   <a href="{% url 'notifications:read_all' %}">Mark all read</a>
+  |
+  <a href="{% url 'notifications:list' %}">Active</a>
+  |
+  <a href="{% url 'notifications:archived_list' %}">Archived</a>
 </p>
 {% for n in notifications %}
   <div class="notif" style="border:1px solid #ddd; padding:8px; margin:8px 0;">
@@ -21,6 +25,9 @@
     </small>
     <div>
       <a href="{% url 'notifications:read_one' n.pk %}">Mark read</a>
+      |
+      <!-- Archive link -->
+      <a href="{% url 'notifications:archive' n.pk %}">Archive</a>
     </div>
   </div>
 {% empty %}

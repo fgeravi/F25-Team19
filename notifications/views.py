@@ -7,7 +7,14 @@ from django.http import Http404
 def _has_field(model, name: str) -> bool:
     return name in {f.name for f in model._meta.get_fields()}
 
-def _resolve_model_and_qs(user):
+def _resolve_model_and_qs(user, archived=None):
+    """
+    Resolve the concrete notification model and base queryset for the user.
+
+    archived:
+        - True  => only archived notifications (if field exists)
+        - False or None => only non-archived notifications (default behavior)
+    """
     try:
         DN = apps.get_model("users", "DriverNotification")
         fields = {f.name: f for f in DN._meta.get_fields()}
@@ -28,7 +35,10 @@ def _resolve_model_and_qs(user):
 
         if qs is not None:
             if _has_field(DN, "archived"):
-                qs = qs.filter(archived=False)
+                if archived is True:
+                    qs = qs.filter(archived=True)
+                else:
+                    qs = qs.filter(archived=False)
             if _has_field(DN, "visible"):
                 qs = qs.filter(visible=True)
 
@@ -59,7 +69,10 @@ def _resolve_model_and_qs(user):
 
         if qs is not None:
             if "archived" in fields:
-                qs = qs.filter(archived=False)
+                if archived is True:
+                    qs = qs.filter(archived=True)
+                else:
+                    qs = qs.filter(archived=False)
             if "visible" in fields:
                 qs = qs.filter(visible=True)
 
@@ -118,6 +131,7 @@ def list_notifications(request):
         raise Http404("No notifications model configured.")
     return render(request, "notifications/list.html", {"notifications": qs})
 
+
 @login_required
 def mark_all_read(request):
     Model, qs = _resolve_model_and_qs(request.user)
@@ -142,6 +156,7 @@ def mark_all_read(request):
 
     return redirect("notifications:list")
 
+
 @login_required
 def mark_one_read(request, pk):
     Model, qs = _resolve_model_and_qs(request.user)
@@ -155,3 +170,38 @@ def mark_one_read(request, pk):
         n.save(update_fields=to_update if to_update else None)
 
     return redirect("notifications:list")
+
+
+@login_required
+def archive_notification(request, pk):
+    """
+    Soft-delete / archive a notification instead of permanently deleting it.
+    If the underlying model does not support 'archived', fall back to hard delete.
+    """
+    Model, qs = _resolve_model_and_qs(request.user)
+    if Model is None:
+        return redirect("notifications:list")
+
+    n = get_object_or_404(qs.model, pk=pk)
+    fields = {f.name for f in Model._meta.get_fields()}
+
+    if "archived" in fields:
+        if not getattr(n, "archived", False):
+            n.archived = True
+            n.save(update_fields=["archived"])
+    else:
+        # Fallback if the model doesn't support archiving
+        n.delete()
+
+    return redirect("notifications:list")
+
+
+@login_required
+def list_archived_notifications(request):
+    """
+    Show only archived notifications for the current user.
+    """
+    Model, qs = _resolve_model_and_qs(request.user, archived=True)
+    if Model is None:
+        raise Http404("No notifications model configured.")
+    return render(request, "notifications/list.html", {"notifications": qs})

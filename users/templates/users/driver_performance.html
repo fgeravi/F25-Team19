@@ -4,45 +4,51 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1>Driver Performance</h1>
+        <button onclick="window.print();" class="btn btn-secondary">
+            Print or Save as PDF
+        </button>
     </div>
     <hr>
 
     <div class="card shadow-sm">
         <div class="card-body">
-            <p class="mb-0">This table shows all drivers linked to your account and their current point balances. Click on a column header to sort.</p>
+            <p class="mb-0">This table shows all drivers linked to your account and their current point balances. Click a column header to sort the view. Use the "Print" button to generate a clean report or save it as a PDF using your browser's print options.</p>
         </div>
     </div>
 
-    <table class="table table-hover mt-4">
-        <thead class="table-light">
-            <tr>
-                <th scope="col" style="width: 70%;">
-                    <a href="?sort={% if current_sort == 'driver' %}-driver{% else %}driver{% endif %}" class="text-dark text-decoration-none fw-bold">
-                        Driver {% if 'driver' in current_sort %}{% if current_sort|first == '-' %}▼{% else %}▲{% endif %}{% endif %}
-                    </a>
-                </th>
-                <th scope="col" class="text-end">
-                    <a href="?sort={% if current_sort == 'points' %}-points{% else %}points{% endif %}" class="text-dark text-decoration-none fw-bold">
-                        Points Balance {% if 'points' in current_sort %}{% if current_sort|first == '-' %}▼{% else %}▲{% endif %}{% endif %}
-                    </a>
-                </th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for sponsorship in sponsorships %}
+    <div id="report-area">
+        <table class="table table-hover mt-4">
+            <thead class="table-light">
                 <tr>
-                    <td>
-                        {{ sponsorship.driver.user.first_name }} {{ sponsorship.driver.user.last_name }}
-                        <span class="text-muted">(@{{ sponsorship.driver.user.username }})</span>
-                    </td>
-                    <td class="text-end fs-5 fw-bold">{{ sponsorship.points }}</td>
+                    <th scope="col" style="width: 70%;">
+                        <a href="?sort={% if current_sort == 'driver' %}-driver{% else %}driver{% endif %}" class="text-dark text-decoration-none fw-bold">
+                            Driver {% if 'driver' in current_sort %}{% if current_sort|first == '-' %}▼{% else %}▲{% endif %}{% endif %}
+                        </a>
+                    </th>
+                    <th scope="col" class="text-end">
+                        <a href="?sort={% if current_sort == 'points' %}-points{% else %}points{% endif %}" class="text-dark text-decoration-none fw-bold">
+                            Points Balance {% if 'points' in current_sort %}{% if current_sort|first == '-' %}▼{% else %}▲{% endif %}{% endif %}
+                        </a>
+                    </th>
                 </tr>
-            {% empty %}
-                <tr>
-                    <td colspan="2" class="text-center py-4">You do not have any approved drivers linked to your account yet.</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for sponsorship in sponsorships %}
+                    <tr>
+                        <td>
+                            {{ sponsorship.driver.user.first_name }} {{ sponsorship.driver.user.last_name }}
+                            <span class="text-muted">(@{{ sponsorship.driver.user.username }})</span>
+                        </td>
+                        <td class="text-end fs-5 fw-bold">{{ sponsorship.total_points }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center py-4">You do not have any approved drivers linked to your account yet.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
 </div>
 {% endblock %}

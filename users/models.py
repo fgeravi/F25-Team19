@@ -96,6 +96,8 @@ class DriverNotification(models.Model):
     sent_at = models.DateTimeField(auto_now_add=True)
     metadata = models.JSONField(default=dict, blank=True)
     is_read = models.BooleanField(default=False)
+    # NEW: support soft-delete/archive
+    archived = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-sent_at"]
