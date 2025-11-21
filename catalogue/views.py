@@ -116,10 +116,16 @@ def view_catalogue(request, sponsor_id):
     user = request.user
 
     # Get or create the sponsor's catalogue
-    catalogue, _ = Catalogue.objects.get_or_create(
+    catalogue = Catalogue.objects.filter(
         sponsor=sponsor,
         name="Default Catalogue"
-    )
+    ).first()
+    
+    if not catalogue:
+        catalogue = Catalogue.objects.create(
+            sponsor=sponsor,
+            name="Default Catalogue"
+        )
 
     # Only show active items to drivers
     if user.is_sponsor and user == sponsor.user:
