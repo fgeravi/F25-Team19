@@ -15,6 +15,42 @@ def _resolve_model_and_qs(user, archived=None):
         - True  => only archived notifications (if field exists)
         - False or None => only non-archived notifications (default behavior)
     """
+    # 1. Prefer the generic Notification model in this app
+    try:
+        N = apps.get_model("notifications", "Notification")
+        fields = {f.name for f in N._meta.get_fields()}
+        qs = None
+
+        if "user" in fields:
+            qs = N.objects.filter(user=user)
+        elif "recipient" in fields:
+            qs = N.objects.filter(recipient=user)
+        elif "owner" in fields:
+            qs = N.objects.filter(owner=user)
+
+        if qs is not None:
+            if "archived" in fields:
+                if archived is True:
+                    qs = qs.filter(archived=True)
+                else:
+                    qs = qs.filter(archived=False)
+            if "visible" in fields:
+                qs = qs.filter(visible=True)
+
+            if "created_at" in fields:
+                qs = qs.order_by("-created_at")
+            elif "created" in fields:
+                qs = qs.order_by("-created")
+            elif "timestamp" in fields:
+                qs = qs.order_by("-timestamp")
+            else:
+                qs = qs.order_by("-id")
+
+            return N, qs
+    except LookupError:
+        pass
+
+    # 2. Fallback to DriverNotification in users app
     try:
         DN = apps.get_model("users", "DriverNotification")
         fields = {f.name: f for f in DN._meta.get_fields()}
@@ -52,40 +88,6 @@ def _resolve_model_and_qs(user, archived=None):
                 qs = qs.order_by("-id")
 
             return DN, qs
-    except LookupError:
-        pass
-
-    try:
-        N = apps.get_model("notifications", "Notification")
-        fields = {f.name for f in N._meta.get_fields()}
-        qs = None
-
-        if "user" in fields:
-            qs = N.objects.filter(user=user)
-        elif "recipient" in fields:
-            qs = N.objects.filter(recipient=user)
-        elif "owner" in fields:
-            qs = N.objects.filter(owner=user)
-
-        if qs is not None:
-            if "archived" in fields:
-                if archived is True:
-                    qs = qs.filter(archived=True)
-                else:
-                    qs = qs.filter(archived=False)
-            if "visible" in fields:
-                qs = qs.filter(visible=True)
-
-            if "created_at" in fields:
-                qs = qs.order_by("-created_at")
-            elif "created" in fields:
-                qs = qs.order_by("-created")
-            elif "timestamp" in fields:
-                qs = qs.order_by("-timestamp")
-            else:
-                qs = qs.order_by("-id")
-
-            return N, qs
     except LookupError:
         pass
 
@@ -198,9 +200,6 @@ def archive_notification(request, pk):
 
 @login_required
 def list_archived_notifications(request):
-    """
-    Show only archived notifications for the current user.
-    """
     Model, qs = _resolve_model_and_qs(request.user, archived=True)
     if Model is None:
         raise Http404("No notifications model configured.")

@@ -12,9 +12,9 @@
   </head>
 
   <body class="
-    {% if request.resolver_match and request.resolver_match.url_name == 'login' %}aurora-login{% endif %}
-    {% if request.resolver_match and request.resolver_match.url_name == 'home' %} home-aurora{% endif %}
-    {% if request.resolver_match and request.resolver_match.url_name == 'notifications_list' %} notifications-page{% endif %}
+  {% if request.resolver_match and request.resolver_match.url_name == 'login' %}aurora-login{% endif %}
+  {% if request.resolver_match and request.resolver_match.url_name == 'home' %} home-aurora{% endif %}
+  {% if request.resolver_match and request.resolver_match.namespace == 'notifications' and request.resolver_match.url_name == 'list' %} notifications-page{% endif %}
   ">
     <!-- Hidden global CSRF token for AJAX -->
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
@@ -56,14 +56,14 @@
           {% if user.is_sponsor and user.sponsorprofile %}
             <a href="{% url 'catalogue:view_catalogue' sponsor_id=user.sponsorprofile.id %}">My Catalogue</a>
             <a href="{% url 'catalogue:orders_csv' %}">Download Orders CSV</a>
-            <a href="{% url 'manage_drivers' %}"">Manage Drivers </a>
+            <a href="{% url 'manage_drivers' %}">Manage Drivers </a>
             <a href="{% url 'driver_performance' %}">Driver Performance</a>
             <a href="{%url 'rewards:add_points'%}">Add Points</a>
           {% endif %}
 
           {% unread_notifications_count as unread_count %}
           {% with count=unread_count|default_if_none:0 %}
-            <a href="{% url 'notifications_list' %}">
+            <a href="{% url 'notifications:list' %}">
               {% if count %}Notifications ({{ count }}){% else %}Notifications{% endif %}
             </a>
           {% endwith %}
