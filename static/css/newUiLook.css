@@ -67,7 +67,7 @@
     background: var(--accent);
     color:#0c1114;
     border-color: var(--accent-2);
-    box-shadow: 0 0 0 3px rgba(29,185,84,.18);
+    box-shadow: 0 0 0 3px rgba(29,185,84,.20);
   }
   .btn-outline{
     background:transparent;color:var(--text);
@@ -88,36 +88,44 @@
     padding:16px;
   }
   
-  /* ---------------- Login page aurora (stronger & taller from bottom) ---------------- */
   .aurora-login{
-    background:#0b0d10;
+    background:#050814;
     position:relative;
     overflow-x:hidden;
   }
+  
   .aurora-login::before{
     content:"";
     position:fixed;
-    left:0; right:0; bottom:0; height:78vh;
+    left:0; right:0; bottom:0; height:80vh;
     pointer-events:none; z-index:0;
     background:
-      radial-gradient(62% 50% at 68% 115%, rgba(52,199,255,.70) 0%, rgba(52,199,255,0) 63%),
-      radial-gradient(58% 46% at 22% 120%, rgba(255,94,188,.62) 0%, rgba(255,94,188,0) 61%),
-      radial-gradient(64% 52% at 46% 118%, rgba(126,255,185,.58) 0%, rgba(126,255,185,0) 63%),
-      linear-gradient(to top, rgba(38,25,61,.75) 0%, rgba(38,25,61,0) 60%);
-    filter: blur(24px) saturate(135%);
+      /* electric cyan bottom-right */
+      radial-gradient(62% 50% at 75% 115%, rgba(0,212,255,0.85) 0%, rgba(0,212,255,0) 63%),
+      /* strong pink bottom-left */
+      radial-gradient(58% 46% at 20% 118%, rgba(255,110,199,0.78) 0%, rgba(255,110,199,0) 61%),
+      /* soft purple in the center */
+      radial-gradient(64% 52% at 50% 110%, rgba(123,97,255,0.75) 0%, rgba(123,97,255,0) 63%),
+      /* vertical dark-to-transparent wash */
+      linear-gradient(to top, rgba(15,10,35,0.9) 0%, rgba(15,10,35,0) 60%);
+    filter: blur(26px) saturate(145%);
   }
   
   /* Subtle color wash on Home */
   .home-aurora{ position:relative; }
+
   .home-aurora::before{
     content:"";
     position:fixed; inset:0; pointer-events:none; z-index:0;
     background:
-      radial-gradient(40% 35% at 10% 100%, rgba(45,197,255,.18) 0%, rgba(45,197,255,0) 60%),
-      radial-gradient(35% 30% at 100% 100%, rgba(29,185,84,.14) 0%, rgba(29,185,84,0) 60%);
-    filter: blur(18px);
+      /* pink glow lower-left */
+      radial-gradient(40% 35% at 10% 100%, rgba(255,110,199,0.48) 0%, rgba(255,110,199,0) 60%),
+      /* cyan glow lower-right */
+      radial-gradient(48% 32% at 100% 100%, rgba(0,212,255,0.72) 0%, rgba(0,212,255,0) 60%),
+      /* soft purple center */
+      radial-gradient(32% 30% at 60% 110%, rgba(123,97,255,0.58) 0%, rgba(123,97,255,0) 60%);
+    filter: blur(22px) saturate(135%);
   }
-  .top-nav, #content, main, form { position:relative; z-index:1; }
   
   /* ---------------- Auth (login) card & form ---------------- */
   .auth-wrap{
@@ -157,7 +165,7 @@
   }
   input:focus, select:focus, textarea:focus{
     border-color:#2d8f57;
-    box-shadow:0 0 0 3px rgba(29,185,84,.18);
+    box-shadow:0 0 0 3px rgba(29,185,84,.20);
   }
   
   /* Bigger “Sign in” button */
@@ -182,13 +190,16 @@
   .auth-links a{ color:var(--text-dim); text-decoration:none; }
   .auth-links a:hover{ color:var(--text); }
   
-  /* ---------------- Notifications page backdrop ---------------- */
-  .notifications-page::before{
-    content:"";
-    position:fixed; inset:0; pointer-events:none; z-index:0;
-    background:
-      radial-gradient(38% 34% at 12% 100%, rgba(45,197,255,.18) 0%, rgba(45,197,255,0) 60%),
-      radial-gradient(35% 30% at 90% 94%, rgba(255,94,188,.14) 0%, rgba(255,94,188,0) 60%),
-      radial-gradient(32% 28% at 60% 100%, rgba(29,185,84,.12) 0%, rgba(29,185,84,0) 60%);
-    filter: blur(18px);
-  }
+/* ---------------- Notifications page backdrop ---------------- */
+.notifications-page::before{
+  content:"";
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    /* pink focus bottom-left */
+    radial-gradient(38% 34% at 12% 100%, rgba(255,110,199,0.60) 0%, rgba(255,110,199,0) 60%),
+    /* cyan focus bottom-right */
+    radial-gradient(35% 30% at 90% 94%, rgba(0,212,255,0.54) 0%, rgba(0,212,255,0) 60%),
+    /* subtle purple center */
+    radial-gradient(32% 28% at 60% 100%, rgba(123,97,255,0.26) 0%, rgba(123,97,255,0) 60%);
+  filter: blur(22px) saturate(140%);
+}
