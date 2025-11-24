@@ -319,6 +319,140 @@ def clear_cart(request):
 # ORDER / CHECKOUT FLOWS
 # --------------------------
 
+#NEW 
+# catalogue/views.py
+from django.db import transaction
+from django.contrib import messages
+from django.shortcuts import redirect, reverse
+from django.utils import timezone
+from django.contrib.auth.decorators import login_required
+
+from .models import CartItem, Order, OrderItem
+from users.models import DriverSponsor, DriverSponsorPoints
+
+
+@login_required
+def checkout_submit(request):
+    if not request.user.is_driver:
+        messages.error(request, "Only drivers can place orders.")
+        return redirect("home")
+
+    cart_items = CartItem.objects.filter(user=request.user) \
+        .select_related("catalogue_item__catalogue__sponsor")
+
+    if not cart_items.exists():
+        messages.error(request, "Your cart is empty.")
+        return redirect("catalogue:view_cart")
+
+    with transaction.atomic():
+        # Group required points by sponsor
+        required_by_sponsor = {}
+        for ci in cart_items:
+            sponsor = ci.catalogue_item.catalogue.sponsor
+            cost = ci.catalogue_item.price * ci.quantity
+            required_by_sponsor[sponsor] = required_by_sponsor.get(sponsor, 0) + cost
+
+        deduction_report = []
+
+        # For each sponsor: validate + deduct points (FIFO)
+        for sponsor, needed in required_by_sponsor.items():
+            try:
+                driver_sponsor = DriverSponsor.objects.get(
+                    driver__user=request.user,
+                    sponsor=sponsor,
+                    approved=True
+                )
+            except DriverSponsor.DoesNotExist:
+                messages.error(request, f"You are not sponsored by {sponsor.company_name}.")
+                raise  # rollback
+
+            # Get non-expired entries, oldest first
+            entries = list(
+                DriverSponsorPoints.objects.filter(
+                    driver_sponsor=driver_sponsor,
+                    expiry_at__gt=timezone.now()
+                ).order_by("awarded_at")
+            )
+
+            total_available = sum(e.points for e in entries)
+            if total_available < needed:
+                messages.error(
+                    request,
+                    f"Not enough points from {sponsor.company_name}. "
+                    f"Available: {total_available}, Required: {needed}"
+                )
+                raise  # rollback
+
+            # FIFO deduction
+            remaining = needed
+            for entry in entries:
+                if remaining <= 0:
+                    break
+                if entry.points >= remaining:
+                    entry.points -= remaining
+                    if entry.points == 0:
+                        entry.delete()
+                    else:
+                        entry.save()
+                    remaining = 0
+                else:
+                    remaining -= entry.points
+                    entry.delete()
+
+            # Record the redemption (negative entry – great for audit trail)
+            DriverSponsorPoints.objects.create(
+                driver_sponsor=driver_sponsor,
+                points=-needed,
+                expiry_at=timezone.now() + timezone.timedelta(days=365*10),  # never expires
+            )
+
+            deduction_report.append(f"{sponsor.company_name}: {needed} points")
+
+        # All deductions succeeded → create the order
+        org = cart_items[0].catalogue_item.catalogue.sponsor.organization
+        order = Order.objects.create(
+            driver=request.user,
+            organization=org,
+            status=Order.STATUS_APPROVED,  # auto-approved for demo
+        )
+
+        # Create order items
+        OrderItem.objects.bulk_create([
+            OrderItem(
+                order=order,
+                catalogue_item=ci.catalogue_item,
+                product_name=ci.catalogue_item.product_name,
+                product_id=ci.catalogue_item.product_id,
+                price_each=ci.catalogue_item.price,
+                quantity=ci.quantity,
+            )
+            for ci in cart_items
+        ])
+
+        # Clear the cart
+        cart_items.delete()
+
+        # Success message with breakdown
+        breakdown = "<br>".join(f"• {line}" for line in deduction_report)
+        messages.success(
+            request,
+            f"Order #{order.id} confirmed!<br><br>"
+            f"Points deducted:<br>{breakdown}"
+        )
+
+        # Notification
+        order_url = request.build_absolute_uri(
+            reverse("catalogue:order_detail", kwargs={"order_id": order.id})
+        )
+        send_driver_notification(
+            driver_user=request.user,
+            content=f"Order #{order.id} placed and points deducted!",
+            notif_type="order_placed",
+            metadata_extra={"order_id": order.id, "link": order_url},
+        )
+
+    return redirect("catalogue:order_detail", order_id=order.id)
+
 # @login_required
 # def checkout_submit(request):
 #     """
@@ -418,17 +552,17 @@ def clear_cart(request):
 #     return render(request, "catalogue/my_orders.html", {"orders": orders})
 
 
-# @login_required
-# def order_detail(request, order_id):
-#     """
-#     Show one specific order and its items.
-#     """
-#     order = get_object_or_404(Order, id=order_id, driver=request.user)
+@login_required
+def order_detail(request, order_id):
+    """
+    Show one specific order and its items.
+    """
+    order = get_object_or_404(Order, id=order_id, driver=request.user)
 
-#     return render(request, "catalogue/order_detail.html", {
-#         "order": order,
-#         "editable": order.is_editable,
-#     })
+    return render(request, "catalogue/order_detail.html", {
+        "order": order,
+        "editable": order.is_editable,
+    })
 
 
 # @login_required
@@ -476,102 +610,102 @@ def clear_cart(request):
 #     return redirect("catalogue:my_orders")
 
 
-# @login_required
-# def orders_csv(request):
-#     """
-#     Export this sponsor's orders as CSV (one row per order item).
-#     Filters:
-#       ?start=YYYY-MM-DD&end=YYYY-MM-DD&status=PENDING,APPROVED,FULFILLED,CANCELLED
-#     """
-#     # Only sponsors can export
-#     if not getattr(request.user, "is_sponsor", False):
-#         return HttpResponse("Forbidden", status=403, content_type="text/plain")
+@login_required
+def orders_csv(request):
+    """
+    Export this sponsor's orders as CSV (one row per order item).
+    Filters:
+      ?start=YYYY-MM-DD&end=YYYY-MM-DD&status=PENDING,APPROVED,FULFILLED,CANCELLED
+    """
+    # Only sponsors can export
+    if not getattr(request.user, "is_sponsor", False):
+        return HttpResponse("Forbidden", status=403, content_type="text/plain")
 
-#     sponsor_profile = getattr(request.user, "sponsorprofile", None)
-#     if not sponsor_profile or not sponsor_profile.organization:
-#         return HttpResponse("Sponsor profile not found.", status=400, content_type="text/plain")
+    sponsor_profile = getattr(request.user, "sponsorprofile", None)
+    if not sponsor_profile or not sponsor_profile.organization:
+        return HttpResponse("Sponsor profile not found.", status=400, content_type="text/plain")
 
-#     start_s = request.GET.get("start") or ""
-#     end_s = request.GET.get("end") or ""
-#     status_s = request.GET.get("status") or "" 
-#     statuses = [s.strip() for s in status_s.split(",") if s.strip()] or None
+    start_s = request.GET.get("start") or ""
+    end_s = request.GET.get("end") or ""
+    status_s = request.GET.get("status") or "" 
+    statuses = [s.strip() for s in status_s.split(",") if s.strip()] or None
 
-#     start_d = parse_date(start_s)
-#     end_d = parse_date(end_s)
+    start_d = parse_date(start_s)
+    end_d = parse_date(end_s)
 
-#     def day_start(d):
-#         return make_aware(datetime(d.year, d.month, d.day))
-#     def day_end(d): 
-#         return make_aware(datetime(d.year, d.month, d.day, 23, 59, 59, 999999))
+    def day_start(d):
+        return make_aware(datetime(d.year, d.month, d.day))
+    def day_end(d): 
+        return make_aware(datetime(d.year, d.month, d.day, 23, 59, 59, 999999))
 
-#     qs = (
-#         Order.objects
-#         .filter(organization=sponsor_profile.organization)
-#         .select_related("driver")
-#         .prefetch_related("items__catalogue_item")
-#         .order_by("-created_at")
-#     )
+    qs = (
+        Order.objects
+        .filter(organization=sponsor_profile.organization)
+        .select_related("driver")
+        .prefetch_related("items__catalogue_item")
+        .order_by("-created_at")
+    )
 
-#     if start_d:
-#         qs = qs.filter(created_at__gte=day_start(start_d))
-#     if end_d:
-#         qs = qs.filter(created_at__lte=day_end(end_d))
-#     if statuses:
-#         qs = qs.filter(status__in=statuses)
+    if start_d:
+        qs = qs.filter(created_at__gte=day_start(start_d))
+    if end_d:
+        qs = qs.filter(created_at__lte=day_end(end_d))
+    if statuses:
+        qs = qs.filter(status__in=statuses)
 
-#     filename_parts = ["orders"]
-#     if start_d: filename_parts.append(f"from-{start_d.isoformat()}")
-#     if end_d:   filename_parts.append(f"to-{end_d.isoformat()}")
-#     filename = "_".join(filename_parts) + ".csv"
+    filename_parts = ["orders"]
+    if start_d: filename_parts.append(f"from-{start_d.isoformat()}")
+    if end_d:   filename_parts.append(f"to-{end_d.isoformat()}")
+    filename = "_".join(filename_parts) + ".csv"
 
-#     resp = HttpResponse(content_type="text/csv; charset=utf-8")
-#     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-#     resp.write("\ufeff")  
+    resp = HttpResponse(content_type="text/csv; charset=utf-8")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    resp.write("\ufeff")  
 
-#     writer = csv.writer(resp, lineterminator="\r\n")
-#     writer.writerow([
-#         "order_id",
-#         "order_status",
-#         "order_created_at",
-#         "driver_username",
-#         "item_product_name",
-#         "item_product_id",
-#         "item_quantity",
-#         "points_each",
-#         "points_line_total",
-#         "order_total_points",
-#     ])
+    writer = csv.writer(resp, lineterminator="\r\n")
+    writer.writerow([
+        "order_id",
+        "order_status",
+        "order_created_at",
+        "driver_username",
+        "item_product_name",
+        "item_product_id",
+        "item_quantity",
+        "points_each",
+        "points_line_total",
+        "order_total_points",
+    ])
 
-#     for order in qs.iterator():
-#         driver_username = getattr(order.driver, "username", "")
+    for order in qs.iterator():
+        driver_username = getattr(order.driver, "username", "")
 
-#         try:
-#             order_points_total = sum(
-#                 (oi.price_each or 0) * (oi.quantity or 0)
-#                 for oi in order.items.all()
-#             )
-#         except Exception:
-#             order_points_total = ""
+        try:
+            order_points_total = sum(
+                (oi.price_each or 0) * (oi.quantity or 0)
+                for oi in order.items.all()
+            )
+        except Exception:
+            order_points_total = ""
 
-#         for oi in order.items.all():
-#             ci = getattr(oi, "catalogue_item", None)
-#             product_name = getattr(oi, "product_name", "") or (getattr(ci, "product_name", "") if ci else "")
-#             product_id = getattr(oi, "product_id", "") or (getattr(ci, "product_id", "") if ci else "")
-#             qty = getattr(oi, "quantity", 1) or 1
-#             pts_each = getattr(oi, "price_each", 0) or 0
-#             pts_line = pts_each * qty
+        for oi in order.items.all():
+            ci = getattr(oi, "catalogue_item", None)
+            product_name = getattr(oi, "product_name", "") or (getattr(ci, "product_name", "") if ci else "")
+            product_id = getattr(oi, "product_id", "") or (getattr(ci, "product_id", "") if ci else "")
+            qty = getattr(oi, "quantity", 1) or 1
+            pts_each = getattr(oi, "price_each", 0) or 0
+            pts_line = pts_each * qty
 
-#             writer.writerow([
-#                 order.id,
-#                 order.status,
-#                 order.created_at.isoformat() if getattr(order, "created_at", None) else "",
-#                 driver_username,
-#                 product_name,
-#                 product_id,
-#                 qty,
-#                 pts_each,
-#                 pts_line,
-#                 order_points_total,
-#             ])
+            writer.writerow([
+                order.id,
+                order.status,
+                order.created_at.isoformat() if getattr(order, "created_at", None) else "",
+                driver_username,
+                product_name,
+                product_id,
+                qty,
+                pts_each,
+                pts_line,
+                order_points_total,
+            ])
 
-#     return resp
+    return resp

@@ -26,4 +26,8 @@ urlpatterns = [
     path('cart/update/<int:cart_item_id>/', views.update_cart_quantity, name='update_cart_quantity'),
     path('cart/clear/', views.clear_cart, name='clear_cart'),
     path('orders/export.csv', views.orders_csv, name='orders_csv'),
+
+    # catalogue/urls.py
+    path("checkout/", views.checkout_submit, name="checkout_submit"),
+    path("order/<int:order_id>/", views.order_detail, name="order_detail"),
 ]
