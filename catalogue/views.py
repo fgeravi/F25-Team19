@@ -319,259 +319,259 @@ def clear_cart(request):
 # ORDER / CHECKOUT FLOWS
 # --------------------------
 
-@login_required
-def checkout_submit(request):
-    """
-    Turn current cart into an Order, deduct points, clear cart.
-    """
-    if not getattr(request.user, "is_driver", False):
-        messages.error(request, "Only drivers can place orders.")
-        return redirect("home")
+# @login_required
+# def checkout_submit(request):
+#     """
+#     Turn current cart into an Order, deduct points, clear cart.
+#     """
+#     if not getattr(request.user, "is_driver", False):
+#         messages.error(request, "Only drivers can place orders.")
+#         return redirect("home")
 
-    driver = request.user
-    cart_items = CartItem.objects.filter(user=driver).select_related("catalogue_item")
+#     driver = request.user
+#     cart_items = CartItem.objects.filter(user=driver).select_related("catalogue_item")
 
-    if not cart_items.exists():
-        messages.error(request, "Your cart is empty.")
-        return redirect("catalogue:view_cart")
+#     if not cart_items.exists():
+#         messages.error(request, "Your cart is empty.")
+#         return redirect("catalogue:view_cart")
 
-    # assume all items are from same org catalogue
-    first_item = cart_items.first()
-    org = first_item.catalogue_item.catalogue.organization if first_item else None
+#     # assume all items are from same org catalogue
+#     first_item = cart_items.first()
+#     org = first_item.catalogue_item.catalogue.organization if first_item else None
 
-    with transaction.atomic():
-        order = Order.objects.create(
-            driver=driver,
-            organization=org,
-            status=Order.STATUS_PENDING,
-        )
+#     with transaction.atomic():
+#         order = Order.objects.create(
+#             driver=driver,
+#             organization=org,
+#             status=Order.STATUS_PENDING,
+#         )
 
-        total_points_cost = 0
+#         total_points_cost = 0
 
-        # copy cart items into order items
-        for ci in cart_items:
-            item = ci.catalogue_item
-            line_cost = (item.price or 0) * ci.quantity
-            total_points_cost += line_cost
+#         # copy cart items into order items
+#         for ci in cart_items:
+#             item = ci.catalogue_item
+#             line_cost = (item.price or 0) * ci.quantity
+#             total_points_cost += line_cost
 
-            OrderItem.objects.create(
-                order=order,
-                catalogue_item=item,
-                product_name=item.product_name,
-                product_id=item.product_id,
-                price_each=item.price,
-                quantity=ci.quantity,
-            )
+#             OrderItem.objects.create(
+#                 order=order,
+#                 catalogue_item=item,
+#                 product_name=item.product_name,
+#                 product_id=item.product_id,
+#                 price_each=item.price,
+#                 quantity=ci.quantity,
+#             )
 
-        # deduct points using existing helper
-        if total_points_cost > 0:
-            ok, msg = award_points_to_driver(
-                sponsor_user=None,   # this is a redemption, not a sponsor gift
-                driver_user=driver,
-                points=-int(total_points_cost),
-                reason=f"Order #{order.id} redemption",
-            )
-            if not ok:
-                messages.error(request, f"Could not submit order: {msg}")
-                raise transaction.TransactionManagementError(msg)
+#         # deduct points using existing helper
+#         if total_points_cost > 0:
+#             ok, msg = award_points_to_driver(
+#                 sponsor_user=None,   # this is a redemption, not a sponsor gift
+#                 driver_user=driver,
+#                 points=-int(total_points_cost),
+#                 reason=f"Order #{order.id} redemption",
+#             )
+#             if not ok:
+#                 messages.error(request, f"Could not submit order: {msg}")
+#                 raise transaction.TransactionManagementError(msg)
 
-        # snapshot balance
-        driver.refresh_from_db()
-        order.balance_after_submit = driver.driverprofile.current_points
-        order.save(update_fields=["balance_after_submit"])
+#         # snapshot balance
+#         driver.refresh_from_db()
+#         order.balance_after_submit = driver.driverprofile.current_points
+#         order.save(update_fields=["balance_after_submit"])
 
-        # clear cart
-        cart_items.delete()
+#         # clear cart
+#         cart_items.delete()
 
-        # >>> CHANGED: send a clear, linkable notification with the order number
-        order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
-        send_driver_notification(
-            driver_user=driver,
-            content=f"Your order #{order.id} has been placed.",
-            notif_type="order_placed",
-            metadata_extra={
-                "order_id": order.id,
-                "link": order_url,
-                "total_points": int(total_points_cost),
-            },
-        )
+#         # >>> CHANGED: send a clear, linkable notification with the order number
+#         order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
+#         send_driver_notification(
+#             driver_user=driver,
+#             content=f"Your order #{order.id} has been placed.",
+#             notif_type="order_placed",
+#             metadata_extra={
+#                 "order_id": order.id,
+#                 "link": order_url,
+#                 "total_points": int(total_points_cost),
+#             },
+#         )
 
-    messages.success(request, f"Order #{order.id} submitted!")
-    return redirect("catalogue:order_detail", order_id=order.id)
-
-
-@login_required
-def my_orders(request):
-    """
-    Show list of all orders for this driver.
-    """
-    if not getattr(request.user, "is_driver", False):
-        messages.error(request, "Only drivers can view orders.")
-        return redirect("home")
-
-    orders = (
-        Order.objects.filter(driver=request.user)
-        .order_by("-created_at")
-        .prefetch_related("items")
-    )
-
-    return render(request, "catalogue/my_orders.html", {"orders": orders})
+#     messages.success(request, f"Order #{order.id} submitted!")
+#     return redirect("catalogue:order_detail", order_id=order.id)
 
 
-@login_required
-def order_detail(request, order_id):
-    """
-    Show one specific order and its items.
-    """
-    order = get_object_or_404(Order, id=order_id, driver=request.user)
+# @login_required
+# def my_orders(request):
+#     """
+#     Show list of all orders for this driver.
+#     """
+#     if not getattr(request.user, "is_driver", False):
+#         messages.error(request, "Only drivers can view orders.")
+#         return redirect("home")
 
-    return render(request, "catalogue/order_detail.html", {
-        "order": order,
-        "editable": order.is_editable,
-    })
+#     orders = (
+#         Order.objects.filter(driver=request.user)
+#         .order_by("-created_at")
+#         .prefetch_related("items")
+#     )
 
-
-@login_required
-def cancel_order(request, order_id):
-    """
-    Cancel an order if still pending and refund points.
-    """
-    order = get_object_or_404(Order, id=order_id, driver=request.user)
-
-    if not order.is_editable:
-        messages.error(request, "This order can no longer be cancelled.")
-        return redirect("catalogue:order_detail", order_id=order.id)
-
-    refund_points = order.total_cost_points
-
-    with transaction.atomic():
-        # mark cancelled
-        order.status = Order.STATUS_CANCELLED
-        order.save(update_fields=["status"])
-
-        # refund points
-        if refund_points > 0:
-            ok, msg = award_points_to_driver(
-                sponsor_user=None,
-                driver_user=request.user,
-                points=int(refund_points),
-                reason=f"Refund for cancelled Order #{order.id}",
-            )
-            if not ok:
-                messages.error(request, f"Order cancelled but refund issue: {msg}")
-
-        order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
-        send_driver_notification(
-            driver_user=request.user,
-            content=f"Order #{order.id} was cancelled. {refund_points} points refunded.",
-            notif_type="order_cancelled",
-            metadata_extra={
-                "order_id": order.id,
-                "link": order_url,
-                "refunded_points": int(refund_points) if refund_points else 0,
-            },
-        )
-
-    messages.success(request, f"Order #{order.id} cancelled and points refunded.")
-    return redirect("catalogue:my_orders")
+#     return render(request, "catalogue/my_orders.html", {"orders": orders})
 
 
-@login_required
-def orders_csv(request):
-    """
-    Export this sponsor's orders as CSV (one row per order item).
-    Filters:
-      ?start=YYYY-MM-DD&end=YYYY-MM-DD&status=PENDING,APPROVED,FULFILLED,CANCELLED
-    """
-    # Only sponsors can export
-    if not getattr(request.user, "is_sponsor", False):
-        return HttpResponse("Forbidden", status=403, content_type="text/plain")
+# @login_required
+# def order_detail(request, order_id):
+#     """
+#     Show one specific order and its items.
+#     """
+#     order = get_object_or_404(Order, id=order_id, driver=request.user)
 
-    sponsor_profile = getattr(request.user, "sponsorprofile", None)
-    if not sponsor_profile or not sponsor_profile.organization:
-        return HttpResponse("Sponsor profile not found.", status=400, content_type="text/plain")
+#     return render(request, "catalogue/order_detail.html", {
+#         "order": order,
+#         "editable": order.is_editable,
+#     })
 
-    start_s = request.GET.get("start") or ""
-    end_s = request.GET.get("end") or ""
-    status_s = request.GET.get("status") or "" 
-    statuses = [s.strip() for s in status_s.split(",") if s.strip()] or None
 
-    start_d = parse_date(start_s)
-    end_d = parse_date(end_s)
+# @login_required
+# def cancel_order(request, order_id):
+#     """
+#     Cancel an order if still pending and refund points.
+#     """
+#     order = get_object_or_404(Order, id=order_id, driver=request.user)
 
-    def day_start(d):
-        return make_aware(datetime(d.year, d.month, d.day))
-    def day_end(d): 
-        return make_aware(datetime(d.year, d.month, d.day, 23, 59, 59, 999999))
+#     if not order.is_editable:
+#         messages.error(request, "This order can no longer be cancelled.")
+#         return redirect("catalogue:order_detail", order_id=order.id)
 
-    qs = (
-        Order.objects
-        .filter(organization=sponsor_profile.organization)
-        .select_related("driver")
-        .prefetch_related("items__catalogue_item")
-        .order_by("-created_at")
-    )
+#     refund_points = order.total_cost_points
 
-    if start_d:
-        qs = qs.filter(created_at__gte=day_start(start_d))
-    if end_d:
-        qs = qs.filter(created_at__lte=day_end(end_d))
-    if statuses:
-        qs = qs.filter(status__in=statuses)
+#     with transaction.atomic():
+#         # mark cancelled
+#         order.status = Order.STATUS_CANCELLED
+#         order.save(update_fields=["status"])
 
-    filename_parts = ["orders"]
-    if start_d: filename_parts.append(f"from-{start_d.isoformat()}")
-    if end_d:   filename_parts.append(f"to-{end_d.isoformat()}")
-    filename = "_".join(filename_parts) + ".csv"
+#         # refund points
+#         if refund_points > 0:
+#             ok, msg = award_points_to_driver(
+#                 sponsor_user=None,
+#                 driver_user=request.user,
+#                 points=int(refund_points),
+#                 reason=f"Refund for cancelled Order #{order.id}",
+#             )
+#             if not ok:
+#                 messages.error(request, f"Order cancelled but refund issue: {msg}")
 
-    resp = HttpResponse(content_type="text/csv; charset=utf-8")
-    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
-    resp.write("\ufeff")  
+#         order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
+#         send_driver_notification(
+#             driver_user=request.user,
+#             content=f"Order #{order.id} was cancelled. {refund_points} points refunded.",
+#             notif_type="order_cancelled",
+#             metadata_extra={
+#                 "order_id": order.id,
+#                 "link": order_url,
+#                 "refunded_points": int(refund_points) if refund_points else 0,
+#             },
+#         )
 
-    writer = csv.writer(resp, lineterminator="\r\n")
-    writer.writerow([
-        "order_id",
-        "order_status",
-        "order_created_at",
-        "driver_username",
-        "item_product_name",
-        "item_product_id",
-        "item_quantity",
-        "points_each",
-        "points_line_total",
-        "order_total_points",
-    ])
+#     messages.success(request, f"Order #{order.id} cancelled and points refunded.")
+#     return redirect("catalogue:my_orders")
 
-    for order in qs.iterator():
-        driver_username = getattr(order.driver, "username", "")
 
-        try:
-            order_points_total = sum(
-                (oi.price_each or 0) * (oi.quantity or 0)
-                for oi in order.items.all()
-            )
-        except Exception:
-            order_points_total = ""
+# @login_required
+# def orders_csv(request):
+#     """
+#     Export this sponsor's orders as CSV (one row per order item).
+#     Filters:
+#       ?start=YYYY-MM-DD&end=YYYY-MM-DD&status=PENDING,APPROVED,FULFILLED,CANCELLED
+#     """
+#     # Only sponsors can export
+#     if not getattr(request.user, "is_sponsor", False):
+#         return HttpResponse("Forbidden", status=403, content_type="text/plain")
 
-        for oi in order.items.all():
-            ci = getattr(oi, "catalogue_item", None)
-            product_name = getattr(oi, "product_name", "") or (getattr(ci, "product_name", "") if ci else "")
-            product_id = getattr(oi, "product_id", "") or (getattr(ci, "product_id", "") if ci else "")
-            qty = getattr(oi, "quantity", 1) or 1
-            pts_each = getattr(oi, "price_each", 0) or 0
-            pts_line = pts_each * qty
+#     sponsor_profile = getattr(request.user, "sponsorprofile", None)
+#     if not sponsor_profile or not sponsor_profile.organization:
+#         return HttpResponse("Sponsor profile not found.", status=400, content_type="text/plain")
 
-            writer.writerow([
-                order.id,
-                order.status,
-                order.created_at.isoformat() if getattr(order, "created_at", None) else "",
-                driver_username,
-                product_name,
-                product_id,
-                qty,
-                pts_each,
-                pts_line,
-                order_points_total,
-            ])
+#     start_s = request.GET.get("start") or ""
+#     end_s = request.GET.get("end") or ""
+#     status_s = request.GET.get("status") or "" 
+#     statuses = [s.strip() for s in status_s.split(",") if s.strip()] or None
 
-    return resp
+#     start_d = parse_date(start_s)
+#     end_d = parse_date(end_s)
+
+#     def day_start(d):
+#         return make_aware(datetime(d.year, d.month, d.day))
+#     def day_end(d): 
+#         return make_aware(datetime(d.year, d.month, d.day, 23, 59, 59, 999999))
+
+#     qs = (
+#         Order.objects
+#         .filter(organization=sponsor_profile.organization)
+#         .select_related("driver")
+#         .prefetch_related("items__catalogue_item")
+#         .order_by("-created_at")
+#     )
+
+#     if start_d:
+#         qs = qs.filter(created_at__gte=day_start(start_d))
+#     if end_d:
+#         qs = qs.filter(created_at__lte=day_end(end_d))
+#     if statuses:
+#         qs = qs.filter(status__in=statuses)
+
+#     filename_parts = ["orders"]
+#     if start_d: filename_parts.append(f"from-{start_d.isoformat()}")
+#     if end_d:   filename_parts.append(f"to-{end_d.isoformat()}")
+#     filename = "_".join(filename_parts) + ".csv"
+
+#     resp = HttpResponse(content_type="text/csv; charset=utf-8")
+#     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+#     resp.write("\ufeff")  
+
+#     writer = csv.writer(resp, lineterminator="\r\n")
+#     writer.writerow([
+#         "order_id",
+#         "order_status",
+#         "order_created_at",
+#         "driver_username",
+#         "item_product_name",
+#         "item_product_id",
+#         "item_quantity",
+#         "points_each",
+#         "points_line_total",
+#         "order_total_points",
+#     ])
+
+#     for order in qs.iterator():
+#         driver_username = getattr(order.driver, "username", "")
+
+#         try:
+#             order_points_total = sum(
+#                 (oi.price_each or 0) * (oi.quantity or 0)
+#                 for oi in order.items.all()
+#             )
+#         except Exception:
+#             order_points_total = ""
+
+#         for oi in order.items.all():
+#             ci = getattr(oi, "catalogue_item", None)
+#             product_name = getattr(oi, "product_name", "") or (getattr(ci, "product_name", "") if ci else "")
+#             product_id = getattr(oi, "product_id", "") or (getattr(ci, "product_id", "") if ci else "")
+#             qty = getattr(oi, "quantity", 1) or 1
+#             pts_each = getattr(oi, "price_each", 0) or 0
+#             pts_line = pts_each * qty
+
+#             writer.writerow([
+#                 order.id,
+#                 order.status,
+#                 order.created_at.isoformat() if getattr(order, "created_at", None) else "",
+#                 driver_username,
+#                 product_name,
+#                 product_id,
+#                 qty,
+#                 pts_each,
+#                 pts_line,
+#                 order_points_total,
+#             ])
+
+#     return resp
