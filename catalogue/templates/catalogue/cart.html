@@ -8,7 +8,7 @@
 {% if cart_items %}
     <table style="width: 100%; border-collapse: collapse; margin-top: 1rem;">
         <thead>
-            <tr style="background-color: #f0f0f0;">
+            <tr style="background-color: #f0f0f0; color: #000;">
                 <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
                 <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Price</th>
                 <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Quantity</th>
@@ -33,7 +33,7 @@
                     </div>
                 </td>
                 <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
-                    ${{ cart_item.catalogue_item.price }}
+                    {{ cart_item.catalogue_item.price }} points
                 </td>
                 <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
                     <form method="post" action="{% url 'catalogue:update_cart_quantity' cart_item.id %}" style="display: inline;">
@@ -44,7 +44,7 @@
                     </form>
                 </td>
                 <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">
-                    <strong>${{ cart_item.get_total_price }}</strong>
+                    <strong>{{ cart_item.get_total_price }}</strong>
                 </td>
                 <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">
                     <a href="{% url 'catalogue:remove_from_cart' cart_item.id %}" 
@@ -57,14 +57,14 @@
             {% endfor %}
         </tbody>
         <tfoot>
-            <tr style="background-color: #f9f9f9; font-weight: bold;">
-                <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #ddd;">
+            <tr style="background-color: #f9f9f9; font-weight: bold; color: #000;">
+                <td colspan="3" style="padding: 10px; text-align: right; border: 1px solid #000000;">
                     Total:
                 </td>
-                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">
-                    ${{ total }}
+                <td style="padding: 10px; text-align: right; border: 1px solid #000000;">
+                    {{ total }} points
                 </td>
-                <td style="border: 1px solid #ddd;"></td>
+                <td style="border: 1px solid #000000;"></td>
             </tr>
         </tfoot>
     </table>
@@ -92,7 +92,7 @@
     </div>
 {% else %}
     <div style="text-align: center; padding: 3rem; background-color: #f8f9fa; border-radius: 8px; margin-top: 2rem;">
-        <p style="font-size: 1.2rem; color: #666;">Your shopping cart is empty.</p>
+        <p style="font-size: 1.2rem; color: #333;">Your shopping cart is empty.</p>
     </div>
 {% endif %}
 
