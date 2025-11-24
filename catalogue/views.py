@@ -244,7 +244,6 @@ def add_to_cart(request, item_id):
     
     if not catalogue_item.is_active:
         messages.error(request, "This item is currently unavailable.")
-        org_id = catalogue_item.catalogue.organization.id
         sponsor_id = catalogue_item.catalogue.sponsor.id
         return redirect("catalogue:view_catalogue", sponsor_id=sponsor_id)
     
