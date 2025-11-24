@@ -71,12 +71,12 @@
           <!-- CSV link (teammate implementing backend) -->
           <a href="{% url 'audit:report_csv' %}">Download Applications CSV</a>
         </div>
-
+        
         <div class="nav-right">
-          {% if user.is_driver and user.driverprofile %}
-            <span class="points-badge" title="Your point balance">
-              {{ user.driverprofile.current_points }} pts
-            </span>
+          {% if user.is_authenticated and user.is_driver %}
+              <span class="points-badge" title="Total points from all sponsors">
+                  {{ total_points }} pts
+              </span>
           {% endif %}
           
           <a href="{% url 'submit_issue' %}" class="link-button">Report Issue</a>
