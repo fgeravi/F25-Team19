@@ -45,13 +45,11 @@
           <a href="{% url 'home' %}">Home</a>
 
           {% if user.is_driver %}
-            {% if organization %}
-              <a href="{% url 'catalogue:view_catalogue' org_id=organization.id %}">Catalog</a>
-            {% endif %}
+            {# TODO: Re-add a Catalog link once we decide which sponsor catalogue drivers should see here #}
             <a href="{% url 'rewards:dashboard' %}">Points</a>
             <a href="{% url 'catalogue:view_cart' %}">Cart</a>
             <a href="{% url 'notification_preferences' %}">Alerts</a>
-          {% endif %}
+        {% endif %}
 
           {% if user.is_sponsor and user.sponsorprofile %}
             <a href="{% url 'catalogue:view_catalogue' sponsor_id=user.sponsorprofile.id %}">My Catalogue</a>

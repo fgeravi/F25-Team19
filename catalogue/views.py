@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.urls import reverse  
+from django.urls import reverse
+
 from organizations.models import Organization
 from .models import (
     Catalogue,
@@ -10,9 +11,16 @@ from .models import (
     CartItem,
     Order,
     OrderItem,
+    ItemView,
 )
 from .utils import fetch_products_from_api
-from users.models import SponsorProfile, DriverProfile, send_driver_notification
+from users.models import (
+    SponsorProfile,
+    DriverProfile,
+    send_driver_notification,
+    DriverSponsor,
+    DriverSponsorPoints,
+)
 from rewards.models import award_points_to_driver
 import requests
 
@@ -21,7 +29,9 @@ import csv
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 from django.utils.timezone import make_aware
-from datetime import datetime
+from django.utils import timezone
+from datetime import datetime, timedelta
+from django.db.models import F
 
 # --------------------------
 # External products for sponsors
@@ -145,12 +155,25 @@ def view_catalogue(request, sponsor_id):
     elif sort == "high_to_low":
         items = items.order_by("-price")
 
+    recently_viewed = []
+    if getattr(user, "is_driver", False):
+        recently_viewed = (
+            ItemView.objects.filter(
+                user=user,
+                catalogue_item__catalogue__sponsor=sponsor,
+            )
+            .select_related("catalogue_item")[:8]
+        )
+
     return render(request, "catalogue/view_catalogue.html", {
         "sponsor": sponsor,
         "catalogue": catalogue,
         "items": items,
         "user": user,
         "sort": sort,
+        "recently_viewed": recently_viewed,
+
+
     })
 
 
@@ -319,17 +342,6 @@ def clear_cart(request):
 # ORDER / CHECKOUT FLOWS
 # --------------------------
 
-#NEW 
-# catalogue/views.py
-from django.db import transaction
-from django.contrib import messages
-from django.shortcuts import redirect, reverse
-from django.utils import timezone
-from django.contrib.auth.decorators import login_required
-
-from .models import CartItem, Order, OrderItem
-from users.models import DriverSponsor, DriverSponsorPoints
-
 
 @login_required
 def checkout_submit(request):
@@ -403,7 +415,7 @@ def checkout_submit(request):
             DriverSponsorPoints.objects.create(
                 driver_sponsor=driver_sponsor,
                 points=-needed,
-                expiry_at=timezone.now() + timezone.timedelta(days=365*10),  # never expires
+                expiry_at=timezone.now() + timedelta(days=365 * 10),  # never expires
             )
 
             deduction_report.append(f"{sponsor.company_name}: {needed} points")
@@ -676,7 +688,7 @@ def orders_csv(request):
         "order_total_points",
     ])
 
-    for order in qs.iterator():
+    for order in qs:
         driver_username = getattr(order.driver, "username", "")
 
         try:
@@ -709,3 +721,28 @@ def orders_csv(request):
             ])
 
     return resp
+
+@login_required
+def catalog_item_detail(request, item_id):
+    """
+    Show detailed info for a single catalogue item and record views.
+    """
+    item = get_object_or_404(CatalogueItem, id=item_id)
+
+    # Track "recently viewed" for drivers
+    if getattr(request.user, "is_driver", False):
+        ItemView.objects.update_or_create(
+            user=request.user,
+            catalogue_item=item,
+            defaults={"viewed_at": timezone.now()},
+        )
+
+    # Increment view counter (atomic)
+    CatalogueItem.objects.filter(pk=item.pk).update(view_count=F("view_count") + 1)
+
+    # Refresh item so view_count is up to date in template
+    item.refresh_from_db(fields=["view_count"])
+
+    return render(request, "catalogue/catalog_item_detail.html", {
+        "item": item,
+    })
