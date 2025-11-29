@@ -49,7 +49,7 @@
             <a href="{% url 'rewards:dashboard' %}">Points</a>
             <a href="{% url 'catalogue:view_cart' %}">Cart</a>
             <a href="{% url 'notification_preferences' %}">Alerts</a>
-        {% endif %}
+          {% endif %}
 
           {% if user.is_sponsor and user.sponsorprofile %}
             <a href="{% url 'catalogue:view_catalogue' sponsor_id=user.sponsorprofile.id %}">My Catalogue</a>
@@ -73,12 +73,12 @@
         <div class="nav-right">
           {% if user.is_authenticated and user.is_driver %}
               <span class="points-badge" title="Total points from all sponsors">
-                  {{ total_points }} pts
+                  {{ header_total_points }} pts
               </span>
           {% endif %}
           
           <a href="{% url 'submit_issue' %}" class="link-button">Report Issue</a>
-
+        
           <a href="{% url 'account_management' %}" class="link-button">Edit account</a>
           <form action="{% url 'logout' %}" method="post">
             {% csrf_token %}
