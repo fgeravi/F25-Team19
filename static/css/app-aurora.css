@@ -351,3 +351,126 @@ input:focus, select:focus, textarea:focus{
   /* reuse the same smooth float as home */
   animation: auroraRise 22s ease-in-out infinite alternate;
 }
+
+/* ========== Order confirmation layout ========== */
+
+.order-confirm-wrap {
+  position: relative;
+  z-index: 2;
+  max-width: 960px;
+  margin: 32px auto;
+  padding: 24px 28px;
+  background: rgba(15, 17, 19, 0.95);
+  border-radius: 18px;
+  border: 1px solid #1f2428;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  color: #e7eef3;
+}
+
+.oc-title {
+  font-size: 30px;
+  margin: 0 0 6px 0;
+}
+
+.oc-subtitle {
+  margin: 0 0 16px 0;
+  color: #c6d2db;
+}
+
+.oc-message {
+  margin: 16px 0 20px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #0f1f16;
+  border: 1px solid #1e3a27;
+  color: #e7eef3;
+}
+
+.oc-section {
+  margin: 20px 0 10px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.oc-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #1f2428;
+  background: rgba(21, 24, 27, 0.9);
+  margin-bottom: 10px;
+}
+
+.oc-item-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.oc-item-name {
+  font-weight: 600;
+}
+
+.oc-item-image {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.oc-item-meta {
+  text-align: right;
+  font-size: 0.95rem;
+}
+
+.oc-line {
+  display: block;
+  color: #c6d2db;
+}
+
+.oc-line-strong {
+  display: block;
+  margin-top: 4px;
+  color: #e7eef3;
+}
+
+.oc-total {
+  margin-top: 18px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: right;
+  color: #1de9a3;
+}
+
+/* Sponsor breakdown */
+
+.oc-sponsor-box {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #1e3a27;
+  background: rgba(10, 24, 18, 0.95);
+}
+
+.oc-sponsor-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 8px 0 0;
+}
+
+.oc-sponsor-list li {
+  padding: 4px 0;
+  color: #e7eef3;
+}
+
+/* Actions */
+.oc-actions {
+  margin-top: 28px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}

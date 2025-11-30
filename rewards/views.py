@@ -46,7 +46,7 @@ def point_dashboard(request):
         if not sponsorships.exists():
             current_balance = 0
             transactions = PointChangeAudit.objects.none()
-            earnings = 0 # MODIFIED
+            earnings = 0
             selected_ds = None
         else:
             # Pick selected sponsor (by SponsorProfile.id) or default to first
@@ -100,6 +100,8 @@ def point_dashboard(request):
         'sponsorships': sponsorships,
         'selected_sponsor': selected_ds.sponsor if selected_ds else None,
         'selected_sponsor_id': selected_ds.sponsor.id if selected_ds else '',
+        # 👇 THIS is the only new line
+        'header_total_points': current_balance,
     }
     return render(request, 'rewards/dashboard.html', context)
 
