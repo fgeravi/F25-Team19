@@ -210,7 +210,7 @@ def manage_drivers_view(request):
         status_query = request.GET.get('status', '')
 
         drivers = DriverSponsor.objects.filter(
-            driver__organization=sponsor_organization,
+            sponsor=sponsor_profile,
             approved=True
         ).select_related('driver__user')
 
@@ -285,10 +285,10 @@ def edit_driver_view(request, driver_id):
         messages.error(request, "Sponsor profile not found.")
         return redirect('home')
 
-    # Ensure the driver is approved under this sponsor
+    # Make sure this driver (by USER id) is actually sponsored by this sponsor
     driver_sponsor = get_object_or_404(
         DriverSponsor,
-        driver__user__id=driver_id,
+        driver__user__id=driver_id,   # <-- note: user id
         sponsor=sponsor_profile,
         approved=True
     )
@@ -306,7 +306,7 @@ def edit_driver_view(request, driver_id):
                     old_value=form.initial.get(field),
                     new_value=form.cleaned_data.get(field)
                 )
-            
+
             form.save()
             messages.success(request, f"Successfully updated profile for {driver_user.username}.")
             return redirect('manage_drivers')
@@ -320,6 +320,7 @@ def edit_driver_view(request, driver_id):
         'driver_user': driver_user
     }
     return render(request, 'users/edit_driver.html', context)
+
 
 
 @login_required

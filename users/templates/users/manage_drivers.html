@@ -16,7 +16,6 @@
 
     <!-- Search Form -->
     <form method="get" class="mb-4 d-flex" role="search">
-        <!-- Search -->
         <input 
             type="text" 
             name="q" 
@@ -25,7 +24,6 @@
             value="{{ search_query }}"
         >
 
-        <!-- Filter -->
         <select name="status" class="form-select" style="max-width: 200px;">
             <option value="">All statuses</option>
             <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
