@@ -83,7 +83,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 # NEW: global header points
-                "rewards.context_processors.header_points",
+                'rewards.context_processors.header_points',
             ],
         },
     },

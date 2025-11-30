@@ -1,41 +1,46 @@
 # rewards/context_processors.py
 
-from django.apps import apps
+from users.models import DriverProfile, DriverSponsor
 
 
 def header_points(request):
     """
-    Provide header_total_points for any authenticated driver so we can
-    show it in the top nav on every page.
+    Provide header_total_points for the nav bar.
 
-    Logic:
-    - If user is not logged in or not a driver → 0.
-    - Otherwise, find the PointChangeAudit model dynamically and use the
-      latest new_point_balance for this driver.
+    We mirror the default behavior of the rewards dashboard:
+    - Look up this driver's approved sponsorships
+    - Pick the *first* sponsorship (same as dashboard default)
+    - Use its `.points` property as the current balance
+
+    That way the value in the top-right header matches the
+    "Current Point Balance" you see on the Points page.
     """
-    user = getattr(request, "user", None)
+    user = request.user
 
-    if not (getattr(user, "is_authenticated", False) and getattr(user, "is_driver", False)):
-        return {"header_total_points": 0}
+    # Only drivers get a header points badge
+    if not user.is_authenticated or not getattr(user, "is_driver", False):
+        return {}
 
-    # Dynamically find the PointChangeAudit model by class name
-    PointChangeAudit = None
-    for m in apps.get_models():
-        if m.__name__ == "PointChangeAudit":
-            PointChangeAudit = m
-            break
+    try:
+        driver_profile = user.driverprofile
+    except DriverProfile.DoesNotExist:
+        return {}
 
-    # If we somehow can't find it, just return 0 instead of crashing
-    if PointChangeAudit is None:
-        return {"header_total_points": 0}
-
-    # Get most recent audit entry for this driver (newest by date/id)
-    latest = (
-        PointChangeAudit.objects
-        .filter(driver=user)
-        .order_by("-date", "-id")
-        .first()
+    # Same sponsorship query style as in point_dashboard
+    sponsorships = (
+        DriverSponsor.objects
+        .filter(driver=driver_profile, approved=True)
+        .select_related("sponsor__user", "sponsor__organization")
+        .order_by("created_at")
     )
 
-    total = getattr(latest, "new_point_balance", 0) if latest else 0
-    return {"header_total_points": total or 0}
+    selected_ds = sponsorships.first()
+    if not selected_ds:
+        total = 0
+    else:
+        # DriverSponsor typically exposes a `.points` property
+        total = getattr(selected_ds, "points", 0) or 0
+
+    return {
+        "header_total_points": total,
+    }
