@@ -70,8 +70,10 @@
                     <div style="font-weight:600;">{{ ds.sponsor.company_name }}</div>
                     <div class="text-muted small">{{ ds.points }} points</div>
                   </div>
-                  {% if ds.sponsor.organization %}
-                    <a href="{% url 'catalogue:view_catalogue' ds.sponsor.organization.id %}" class="btn-pill">Browse Catalogue</a>
+                  {% if ds.sponsor %}
+                    <a href="{% url 'catalogue:view_catalogue' ds.sponsor.id %}" class="btn-pill">
+                     Browse Catalogue
+                    </a>
                   {% endif %}
                 </div>
               </li>

@@ -9,28 +9,35 @@
   |
   <a href="{% url 'notifications:archived_list' %}">Archived</a>
 </p>
-{% for n in notifications %}
-  <div class="notif" style="border:1px solid #ddd; padding:8px; margin:8px 0;">
-    <h4>
-      {{ n.title|default:n.subject|default:n.headline|default:"Notification" }}
-    </h4>
-    <p>
-      {{ n.body|default:n.message|default:n.content|default:n.text }}
-    </p>
-    <small>
-      {{ n.created_at|default:n.created|default:n.timestamp|default:n.pk }}
-      {% if n.is_read is not None %}
-        • {% if n.is_read %}read{% else %}unread{% endif %}
-      {% endif %}
-    </small>
-    <div>
-      <a href="{% url 'notifications:read_one' n.pk %}">Mark read</a>
-      |
-      <!-- Archive link -->
-      <a href="{% url 'notifications:archive' n.pk %}">Archive</a>
+
+{% if notifications %}
+  {% for n in notifications %}
+    <div class="notif" style="border:1px solid #ddd; padding:8px; margin:8px 0;">
+      <h4>Notification</h4>
+
+      <p>
+        {{ n.message }}
+        {% if n.link %}
+          <br>
+          <a href="{{ n.link }}">View details</a>
+        {% endif %}
+      </p>
+
+      <small>
+        {{ n.created_at|date:"N j, Y, P" }}
+        {% if n.is_read is not None %}
+          • {% if n.is_read %}read{% else %}unread{% endif %}
+        {% endif %}
+      </small>
+
+      <div>
+        <a href="{% url 'notifications:read_one' n.pk %}">Mark read</a>
+        |
+        <a href="{% url 'notifications:archive' n.pk %}">Archive</a>
+      </div>
     </div>
-  </div>
-{% empty %}
+  {% endfor %}
+{% else %}
   <p>No notifications.</p>
-{% endfor %}
+{% endif %}
 {% endblock %}

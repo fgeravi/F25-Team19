@@ -19,7 +19,7 @@ from django.utils import timezone
 from audit.models import PasswordChange
 from django.db.models import Sum, Value
 from django.db.models.functions import Coalesce
-from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization, DriverSponsor, DeletionAuditLog
+from .models import SponsorProfile, DriverProfile, User, DriverChangeAudit, Organization, DriverSponsor, DeletionAuditLog, DriverSponsorPoints
 from django.contrib.admin.views.decorators import staff_member_required
 from .forms import DriverEditForm
 from django.db.models import Q
@@ -35,25 +35,38 @@ from .forms import SponsorPointsPolicyForm
 def home(request):
     organization = None
     driver_sponsorships = None
+    total_points = 0
 
-    # Driver
+    # === DRIVER ===
     if getattr(request.user, "is_driver", False):
-        driver_profile = DriverProfile.objects.filter(user=request.user).first()
-        if driver_profile:
-            driver_sponsorships = DriverSponsor.objects.filter(
-                driver=driver_profile,
-                approved=True
-            )
+        try:
+            driver_profile = request.user.driverprofile
 
-    # Sponsor
+            # Get all active sponsorships
+            driver_sponsorships = driver_profile.sponsorships.filter(approved=True)
+
+            # CORRECT WAY: Sum all non-expired points across ALL sponsors
+            total_points = DriverSponsorPoints.objects.filter(
+                driver_sponsor__driver=driver_profile,
+                expiry_at__gt=timezone.now()
+            ).aggregate(total=Sum('points'))['total'] or 0
+
+        except DriverProfile.DoesNotExist:
+            pass  # User is_driver=True but no profile yet
+
+    # === SPONSOR ===
     elif getattr(request.user, "is_sponsor", False):
-        sponsor_profile = getattr(request.user, "sponsorprofile", None)
-        if sponsor_profile and sponsor_profile.organization:
-            organization = sponsor_profile.organization
+        try:
+            sponsor_profile = request.user.sponsorprofile
+            if sponsor_profile.organization:
+                organization = sponsor_profile.organization
+        except SponsorProfile.DoesNotExist:
+            pass
 
     return render(request, "users/home.html", {
         "organization": organization,
         "driver_sponsorships": driver_sponsorships,
+        "total_points": total_points,
     })
 
 

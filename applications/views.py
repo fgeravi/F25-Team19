@@ -187,7 +187,8 @@ def handle_accept(application, sponsor_profile):
 # Helper: Undo acceptance (only when denying after accepted)
 # ======================================================
 def handle_unaccept(application, sponsor_profile):
-    from users.models import DriverProfile, DriverSponsor
+    from users.models import DriverProfile, DriverSponsor, send_driver_notification
+    from django.urls import reverse
 
     driver = application.driver
 
@@ -200,11 +201,21 @@ def handle_unaccept(application, sponsor_profile):
         driver_profile.organization = None
         driver_profile.save(update_fields=["organization"])
 
-    # Remove relationship
     DriverSponsor.objects.filter(
         driver=driver_profile,
         sponsor=sponsor_profile
     ).delete()
+
+    org = sponsor_profile.organization
+    sponsor_name = org.name if org else sponsor_profile.user.username
+
+    # Send a driver notification that they were dropped
+    send_driver_notification(
+        driver_user=driver,
+        content=f"You have been dropped by sponsor {sponsor_name}.",
+        notif_type="dropped",
+        metadata_extra={"link": link},
+    )
 
 
 

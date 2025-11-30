@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db import transaction
-from django.urls import reverse  
+from django.urls import reverse
+
 from organizations.models import Organization
 from .models import (
     Catalogue,
@@ -10,9 +11,16 @@ from .models import (
     CartItem,
     Order,
     OrderItem,
+    ItemView,
 )
 from .utils import fetch_products_from_api
-from users.models import SponsorProfile, DriverProfile, send_driver_notification
+from users.models import (
+    SponsorProfile,
+    DriverProfile,
+    send_driver_notification,
+    DriverSponsor,
+    DriverSponsorPoints,
+)
 from rewards.models import award_points_to_driver
 import requests
 
@@ -21,7 +29,9 @@ import csv
 from django.http import HttpResponse
 from django.utils.dateparse import parse_date
 from django.utils.timezone import make_aware
-from datetime import datetime
+from django.utils import timezone
+from datetime import datetime, timedelta
+from django.db.models import F
 
 # --------------------------
 # External products for sponsors
@@ -33,6 +43,7 @@ def external_products(request, sponsor_id):
     Only the sponsor themselves can view this page.
     """
     sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
+    org = sponsor.organization
 
     # Check that the logged-in user is the sponsor
     if request.user != sponsor.user:
@@ -46,9 +57,14 @@ def external_products(request, sponsor_id):
         messages.error(request, "Failed to fetch products from the external API.")
         products = []
 
+    # modify price -> points
+    for product in products:
+        product["price"] = round(product["price"] / org.point_value_usd)
+
     return render(request, "catalogue/external_products.html", {
         "sponsor": sponsor,
         "products": products,
+        "org": org
     })
 
 
@@ -58,6 +74,7 @@ def add_product_to_catalogue(request, sponsor_id, product_id):
     Add a product to the sponsor's personal catalogue.
     """
     sponsor = get_object_or_404(SponsorProfile, id=sponsor_id)
+    org = sponsor.organization
 
     # Only allow the sponsor themselves
     if request.user != sponsor.user:
@@ -78,13 +95,16 @@ def add_product_to_catalogue(request, sponsor_id, product_id):
 
     product_data = response.json()
 
+    # convert $ -> points
+    price_points = round(product_data["price"] / org.point_value_usd)
+
     CatalogueItem.objects.get_or_create(
         catalogue=catalogue,
         product_id=str(product_data["id"]),
         defaults={
             "product_name": product_data["title"],
             "product_url": f"https://fake-store-api.com/products/{product_data['id']}",
-            "price": product_data["price"],
+            "price": price_points,
             "image_url": product_data["images"][0] if product_data.get("images") else None,
             "category": product_data.get("category", {}).get("name", "Uncategorized"),
         }
@@ -106,10 +126,16 @@ def view_catalogue(request, sponsor_id):
     user = request.user
 
     # Get or create the sponsor's catalogue
-    catalogue, _ = Catalogue.objects.get_or_create(
+    catalogue = Catalogue.objects.filter(
         sponsor=sponsor,
         name="Default Catalogue"
-    )
+    ).first()
+    
+    if not catalogue:
+        catalogue = Catalogue.objects.create(
+            sponsor=sponsor,
+            name="Default Catalogue"
+        )
 
     # Only show active items to drivers
     if user.is_sponsor and user == sponsor.user:
@@ -129,12 +155,25 @@ def view_catalogue(request, sponsor_id):
     elif sort == "high_to_low":
         items = items.order_by("-price")
 
+    recently_viewed = []
+    if getattr(user, "is_driver", False):
+        recently_viewed = (
+            ItemView.objects.filter(
+                user=user,
+                catalogue_item__catalogue__sponsor=sponsor,
+            )
+            .select_related("catalogue_item")[:8]
+        )
+
     return render(request, "catalogue/view_catalogue.html", {
         "sponsor": sponsor,
         "catalogue": catalogue,
         "items": items,
         "user": user,
         "sort": sort,
+        "recently_viewed": recently_viewed,
+
+
     })
 
 
@@ -224,11 +263,12 @@ def add_to_cart(request, item_id):
         return redirect("home")
     
     catalogue_item = get_object_or_404(CatalogueItem, id=item_id)
+
     
     if not catalogue_item.is_active:
         messages.error(request, "This item is currently unavailable.")
-        org_id = catalogue_item.catalogue.organization.id
-        return redirect("catalogue:view_catalogue", org_id=org_id)
+        sponsor_id = catalogue_item.catalogue.sponsor.id
+        return redirect("catalogue:view_catalogue", sponsor_id=sponsor_id)
     
     cart_item, created = CartItem.objects.get_or_create(
         user=request.user,
@@ -243,8 +283,8 @@ def add_to_cart(request, item_id):
     else:
         messages.success(request, f"'{catalogue_item.product_name}' added to cart.")
     
-    org_id = catalogue_item.catalogue.organization.id
-    return redirect("catalogue:view_catalogue", org_id=org_id)
+    sponsor_id = catalogue_item.catalogue.sponsor.id
+    return redirect("catalogue:view_catalogue", sponsor_id=sponsor_id)
 
 
 @login_required
@@ -302,103 +342,226 @@ def clear_cart(request):
 # ORDER / CHECKOUT FLOWS
 # --------------------------
 
+
 @login_required
 def checkout_submit(request):
-    """
-    Turn current cart into an Order, deduct points, clear cart.
-    """
-    if not getattr(request.user, "is_driver", False):
+    if not request.user.is_driver:
         messages.error(request, "Only drivers can place orders.")
         return redirect("home")
 
-    driver = request.user
-    cart_items = CartItem.objects.filter(user=driver).select_related("catalogue_item")
+    cart_items = CartItem.objects.filter(user=request.user) \
+        .select_related("catalogue_item__catalogue__sponsor")
 
     if not cart_items.exists():
         messages.error(request, "Your cart is empty.")
         return redirect("catalogue:view_cart")
 
-    # assume all items are from same org catalogue
-    first_item = cart_items.first()
-    org = first_item.catalogue_item.catalogue.organization if first_item else None
-
     with transaction.atomic():
+        # Group required points by sponsor
+        required_by_sponsor = {}
+        for ci in cart_items:
+            sponsor = ci.catalogue_item.catalogue.sponsor
+            cost = ci.catalogue_item.price * ci.quantity
+            required_by_sponsor[sponsor] = required_by_sponsor.get(sponsor, 0) + cost
+
+        deduction_report = []
+
+        # For each sponsor: validate + deduct points (FIFO)
+        for sponsor, needed in required_by_sponsor.items():
+            try:
+                driver_sponsor = DriverSponsor.objects.get(
+                    driver__user=request.user,
+                    sponsor=sponsor,
+                    approved=True
+                )
+            except DriverSponsor.DoesNotExist:
+                messages.error(request, f"You are not sponsored by {sponsor.company_name}.")
+                raise  # rollback
+
+            # Get non-expired entries, oldest first
+            entries = list(
+                DriverSponsorPoints.objects.filter(
+                    driver_sponsor=driver_sponsor,
+                    expiry_at__gt=timezone.now()
+                ).order_by("awarded_at")
+            )
+
+            total_available = sum(e.points for e in entries)
+            if total_available < needed:
+                messages.error(
+                    request,
+                    f"Not enough points from {sponsor.company_name}. "
+                    f"Available: {total_available}, Required: {needed}"
+                )
+                raise  # rollback
+
+            # FIFO deduction
+            remaining = needed
+            for entry in entries:
+                if remaining <= 0:
+                    break
+                if entry.points >= remaining:
+                    entry.points -= remaining
+                    if entry.points == 0:
+                        entry.delete()
+                    else:
+                        entry.save()
+                    remaining = 0
+                else:
+                    remaining -= entry.points
+                    entry.delete()
+
+            # Record the redemption (negative entry – great for audit trail)
+            DriverSponsorPoints.objects.create(
+                driver_sponsor=driver_sponsor,
+                points=-needed,
+                expiry_at=timezone.now() + timedelta(days=365 * 10),  # never expires
+            )
+
+            deduction_report.append(f"{sponsor.company_name}: {needed} points")
+
+        # All deductions succeeded → create the order
+        org = cart_items[0].catalogue_item.catalogue.sponsor.organization
         order = Order.objects.create(
-            driver=driver,
+            driver=request.user,
             organization=org,
-            status=Order.STATUS_PENDING,
+            status=Order.STATUS_APPROVED,  # auto-approved for demo
         )
 
-        total_points_cost = 0
-
-        # copy cart items into order items
-        for ci in cart_items:
-            item = ci.catalogue_item
-            line_cost = (item.price or 0) * ci.quantity
-            total_points_cost += line_cost
-
-            OrderItem.objects.create(
+        # Create order items
+        OrderItem.objects.bulk_create([
+            OrderItem(
                 order=order,
-                catalogue_item=item,
-                product_name=item.product_name,
-                product_id=item.product_id,
-                price_each=item.price,
+                catalogue_item=ci.catalogue_item,
+                product_name=ci.catalogue_item.product_name,
+                product_id=ci.catalogue_item.product_id,
+                price_each=ci.catalogue_item.price,
                 quantity=ci.quantity,
             )
+            for ci in cart_items
+        ])
 
-        # deduct points using existing helper
-        if total_points_cost > 0:
-            ok, msg = award_points_to_driver(
-                sponsor_user=None,   # this is a redemption, not a sponsor gift
-                driver_user=driver,
-                points=-int(total_points_cost),
-                reason=f"Order #{order.id} redemption",
-            )
-            if not ok:
-                messages.error(request, f"Could not submit order: {msg}")
-                raise transaction.TransactionManagementError(msg)
-
-        # snapshot balance
-        driver.refresh_from_db()
-        order.balance_after_submit = driver.driverprofile.current_points
-        order.save(update_fields=["balance_after_submit"])
-
-        # clear cart
+        # Clear the cart
         cart_items.delete()
 
-        # >>> CHANGED: send a clear, linkable notification with the order number
-        order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
-        send_driver_notification(
-            driver_user=driver,
-            content=f"Your order #{order.id} has been placed.",
-            notif_type="order_placed",
-            metadata_extra={
-                "order_id": order.id,
-                "link": order_url,
-                "total_points": int(total_points_cost),
-            },
+        # Success message with breakdown
+        breakdown = "<br>".join(f"• {line}" for line in deduction_report)
+        messages.success(
+            request,
+            f"Order #{order.id} confirmed!<br><br>"
+            f"Points deducted:<br>{breakdown}"
         )
 
-    messages.success(request, f"Order #{order.id} submitted!")
+        # Notification
+        order_url = request.build_absolute_uri(
+            reverse("catalogue:order_detail", kwargs={"order_id": order.id})
+        )
+        send_driver_notification(
+            driver_user=request.user,
+            content=f"Order #{order.id} placed and points deducted!",
+            notif_type="order_placed",
+            metadata_extra={"order_id": order.id, "link": order_url},
+        )
+
     return redirect("catalogue:order_detail", order_id=order.id)
 
+# @login_required
+# def checkout_submit(request):
+#     """
+#     Turn current cart into an Order, deduct points, clear cart.
+#     """
+#     if not getattr(request.user, "is_driver", False):
+#         messages.error(request, "Only drivers can place orders.")
+#         return redirect("home")
 
-@login_required
-def my_orders(request):
-    """
-    Show list of all orders for this driver.
-    """
-    if not getattr(request.user, "is_driver", False):
-        messages.error(request, "Only drivers can view orders.")
-        return redirect("home")
+#     driver = request.user
+#     cart_items = CartItem.objects.filter(user=driver).select_related("catalogue_item")
 
-    orders = (
-        Order.objects.filter(driver=request.user)
-        .order_by("-created_at")
-        .prefetch_related("items")
-    )
+#     if not cart_items.exists():
+#         messages.error(request, "Your cart is empty.")
+#         return redirect("catalogue:view_cart")
 
-    return render(request, "catalogue/my_orders.html", {"orders": orders})
+#     # assume all items are from same org catalogue
+#     first_item = cart_items.first()
+#     org = first_item.catalogue_item.catalogue.organization if first_item else None
+
+#     with transaction.atomic():
+#         order = Order.objects.create(
+#             driver=driver,
+#             organization=org,
+#             status=Order.STATUS_PENDING,
+#         )
+
+#         total_points_cost = 0
+
+#         # copy cart items into order items
+#         for ci in cart_items:
+#             item = ci.catalogue_item
+#             line_cost = (item.price or 0) * ci.quantity
+#             total_points_cost += line_cost
+
+#             OrderItem.objects.create(
+#                 order=order,
+#                 catalogue_item=item,
+#                 product_name=item.product_name,
+#                 product_id=item.product_id,
+#                 price_each=item.price,
+#                 quantity=ci.quantity,
+#             )
+
+#         # deduct points using existing helper
+#         if total_points_cost > 0:
+#             ok, msg = award_points_to_driver(
+#                 sponsor_user=None,   # this is a redemption, not a sponsor gift
+#                 driver_user=driver,
+#                 points=-int(total_points_cost),
+#                 reason=f"Order #{order.id} redemption",
+#             )
+#             if not ok:
+#                 messages.error(request, f"Could not submit order: {msg}")
+#                 raise transaction.TransactionManagementError(msg)
+
+#         # snapshot balance
+#         driver.refresh_from_db()
+#         order.balance_after_submit = driver.driverprofile.current_points
+#         order.save(update_fields=["balance_after_submit"])
+
+#         # clear cart
+#         cart_items.delete()
+
+#         # >>> CHANGED: send a clear, linkable notification with the order number
+#         order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
+#         send_driver_notification(
+#             driver_user=driver,
+#             content=f"Your order #{order.id} has been placed.",
+#             notif_type="order_placed",
+#             metadata_extra={
+#                 "order_id": order.id,
+#                 "link": order_url,
+#                 "total_points": int(total_points_cost),
+#             },
+#         )
+
+#     messages.success(request, f"Order #{order.id} submitted!")
+#     return redirect("catalogue:order_detail", order_id=order.id)
+
+
+# @login_required
+# def my_orders(request):
+#     """
+#     Show list of all orders for this driver.
+#     """
+#     if not getattr(request.user, "is_driver", False):
+#         messages.error(request, "Only drivers can view orders.")
+#         return redirect("home")
+
+#     orders = (
+#         Order.objects.filter(driver=request.user)
+#         .order_by("-created_at")
+#         .prefetch_related("items")
+#     )
+
+#     return render(request, "catalogue/my_orders.html", {"orders": orders})
 
 
 @login_required
@@ -414,49 +577,49 @@ def order_detail(request, order_id):
     })
 
 
-@login_required
-def cancel_order(request, order_id):
-    """
-    Cancel an order if still pending and refund points.
-    """
-    order = get_object_or_404(Order, id=order_id, driver=request.user)
+# @login_required
+# def cancel_order(request, order_id):
+#     """
+#     Cancel an order if still pending and refund points.
+#     """
+#     order = get_object_or_404(Order, id=order_id, driver=request.user)
 
-    if not order.is_editable:
-        messages.error(request, "This order can no longer be cancelled.")
-        return redirect("catalogue:order_detail", order_id=order.id)
+#     if not order.is_editable:
+#         messages.error(request, "This order can no longer be cancelled.")
+#         return redirect("catalogue:order_detail", order_id=order.id)
 
-    refund_points = order.total_cost_points
+#     refund_points = order.total_cost_points
 
-    with transaction.atomic():
-        # mark cancelled
-        order.status = Order.STATUS_CANCELLED
-        order.save(update_fields=["status"])
+#     with transaction.atomic():
+#         # mark cancelled
+#         order.status = Order.STATUS_CANCELLED
+#         order.save(update_fields=["status"])
 
-        # refund points
-        if refund_points > 0:
-            ok, msg = award_points_to_driver(
-                sponsor_user=None,
-                driver_user=request.user,
-                points=int(refund_points),
-                reason=f"Refund for cancelled Order #{order.id}",
-            )
-            if not ok:
-                messages.error(request, f"Order cancelled but refund issue: {msg}")
+#         # refund points
+#         if refund_points > 0:
+#             ok, msg = award_points_to_driver(
+#                 sponsor_user=None,
+#                 driver_user=request.user,
+#                 points=int(refund_points),
+#                 reason=f"Refund for cancelled Order #{order.id}",
+#             )
+#             if not ok:
+#                 messages.error(request, f"Order cancelled but refund issue: {msg}")
 
-        order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
-        send_driver_notification(
-            driver_user=request.user,
-            content=f"Order #{order.id} was cancelled. {refund_points} points refunded.",
-            notif_type="order_cancelled",
-            metadata_extra={
-                "order_id": order.id,
-                "link": order_url,
-                "refunded_points": int(refund_points) if refund_points else 0,
-            },
-        )
+#         order_url = reverse("catalogue:order_detail", kwargs={"order_id": order.id})
+#         send_driver_notification(
+#             driver_user=request.user,
+#             content=f"Order #{order.id} was cancelled. {refund_points} points refunded.",
+#             notif_type="order_cancelled",
+#             metadata_extra={
+#                 "order_id": order.id,
+#                 "link": order_url,
+#                 "refunded_points": int(refund_points) if refund_points else 0,
+#             },
+#         )
 
-    messages.success(request, f"Order #{order.id} cancelled and points refunded.")
-    return redirect("catalogue:my_orders")
+#     messages.success(request, f"Order #{order.id} cancelled and points refunded.")
+#     return redirect("catalogue:my_orders")
 
 
 @login_required
@@ -525,7 +688,7 @@ def orders_csv(request):
         "order_total_points",
     ])
 
-    for order in qs.iterator():
+    for order in qs:
         driver_username = getattr(order.driver, "username", "")
 
         try:
@@ -558,3 +721,28 @@ def orders_csv(request):
             ])
 
     return resp
+
+@login_required
+def catalog_item_detail(request, item_id):
+    """
+    Show detailed info for a single catalogue item and record views.
+    """
+    item = get_object_or_404(CatalogueItem, id=item_id)
+
+    # Track "recently viewed" for drivers
+    if getattr(request.user, "is_driver", False):
+        ItemView.objects.update_or_create(
+            user=request.user,
+            catalogue_item=item,
+            defaults={"viewed_at": timezone.now()},
+        )
+
+    # Increment view counter (atomic)
+    CatalogueItem.objects.filter(pk=item.pk).update(view_count=F("view_count") + 1)
+
+    # Refresh item so view_count is up to date in template
+    item.refresh_from_db(fields=["view_count"])
+
+    return render(request, "catalogue/catalog_item_detail.html", {
+        "item": item,
+    })

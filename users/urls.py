@@ -20,9 +20,6 @@ urlpatterns = [
     path("register/", views.register, name="register"),
 
     # --- Notifications ---
-    path("notifications/", views.notifications_list, name="notifications_list"),
-    path("notifications/<int:pk>/read/", views.notification_mark_read, name="notification_mark_read"),
-    path("notifications/<int:pk>/delete/", views.notification_delete, name="notification_delete"),
     path("account/notifications/", views.notification_preferences, name="notification_preferences"),
 
     # --- Account Management ---

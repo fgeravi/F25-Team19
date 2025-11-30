@@ -29,15 +29,32 @@ admin.site.site_title = "F25 Team 19 Admin"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+
+    # Root routing first goes to users.urls
     path("", include("users.urls")),
-    path("about/", about_page, name="about"), 
-    path('rewards/', include('rewards.urls')),
+
+    path("about/", about_page, name="about"),
+    path("rewards/", include("rewards.urls")),
     path("apply/", include("applications.urls")),
-    path('catalog/', include('catalogue.urls')),
-    path('audit/', include(('audit.urls', "audit"), namespace="audit")),
-    path('issues/', include('issues.urls')),
-    path('accounts/password/change/', auth_views.PasswordChangeView.as_view(), name='password_change'),
-    path('accounts/password/change/done/', auth_views.PasswordChangeDoneView.as_view(), name='password_change_done'),
-    path('notifications/', include('notifications.urls')),
-    path('hijack/', include('hijack.urls')), # for django-hijack
+    path("catalog/", include("catalogue.urls")),
+    path("audit/", include(("audit.urls", "audit"), namespace="audit")),
+    path("issues/", include("issues.urls")),
+
+    # Password change
+    path(
+        "accounts/password/change/",
+        auth_views.PasswordChangeView.as_view(),
+        name="password_change",
+    ),
+    path(
+        "accounts/password/change/done/",
+        auth_views.PasswordChangeDoneView.as_view(),
+        name="password_change_done",
+    ),
+
+    # NEW SYSTEM — notifications app (must not be shadowed by users.urls)
+    path("notifications/", include("notifications.urls")),
+
+    # Hijack admin tool
+    path("hijack/", include("hijack.urls")),
 ]

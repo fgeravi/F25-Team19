@@ -15,6 +15,7 @@ from itertools import chain
 from operator import attrgetter
 from rewards.models import PointChangeAudit
 from django.http import HttpResponse
+from users.models import DriverSponsor
 
 # Create your views here.
 
@@ -41,20 +42,18 @@ def _apply_filters(qs, form):
 def report_csv(request):
     form = ReportFilterForm(request.GET or None)
 
-    qs = DriverApplication.objects.select_related("organization", "driver").all()
+    # Use sponsor + driver, not organization
+    qs = DriverApplication.objects.select_related("sponsor", "driver").all()
 
     if request.user.is_staff:
         role = "admin"
 
     elif getattr(request.user, "is_sponsor", False):
-        sponsor_org_id = getattr(
-            getattr(request.user, "sponsorprofile", None),
-            "organization_id",
-            None,
-        )
-        if sponsor_org_id is None:
-            raise PermissionDenied("No organization associated with this sponsor.")
-        qs = qs.filter(organization_id=sponsor_org_id)
+        # Limit to this sponsor's applications
+        sponsor_profile = getattr(request.user, "sponsorprofile", None)
+        if sponsor_profile is None:
+            raise PermissionDenied("No sponsor profile associated with this user.")
+        qs = qs.filter(sponsor=sponsor_profile)
         role = "sponsor"
 
     elif getattr(request.user, "is_driver", False):
@@ -70,10 +69,25 @@ def report_csv(request):
 
     def rows():
         for a in qs.iterator(chunk_size=1000):
+            # Driver username or email
+            driver_label = getattr(a.driver, "username", getattr(a.driver, "email", ""))
+
+            # Try to get an "organization" name via sponsor
+            org_name = ""
+            sponsor = getattr(a, "sponsor", None)
+            if sponsor is not None:
+                # If SponsorProfile has an organization with a name
+                org = getattr(sponsor, "organization", None)
+                if org is not None and hasattr(org, "name"):
+                    org_name = org.name
+                else:
+                    # Fallback: sponsor/company name or string repr
+                    org_name = getattr(sponsor, "company_name", str(sponsor))
+
             yield [
                 a.id,
-                getattr(a.driver, "username", getattr(a.driver, "email", "")),
-                getattr(a.organization, "name", ""),
+                driver_label,
+                org_name,
                 a.status,
                 a.created_at.isoformat() if a.created_at else "",
                 a.updated_at.isoformat() if getattr(a, "updated_at", None) else "",
@@ -104,7 +118,16 @@ def audit_log_report(request):
     username_filter = request.GET.get("username", "").strip()
     keyword = request.GET.get("keyword", "").strip().lower()
 
-    # Collect events based on filter
+    allowed_usernames = None
+    if not request.user.is_staff:
+        sponsor_profile = getattr(request.user, 'sponsorprofile', None)
+        if sponsor_profile:
+            driver_usernames = DriverSponsor.objects.filter(
+                sponsor=sponsor_profile,
+                approved=True
+            ).select_related('driver__user').values_list('driver__user__username', flat=True)
+            allowed_usernames = set([request.user.username] + list(driver_usernames))
+
     events = []
 
     if event_type in ["all", "login"]:
@@ -115,6 +138,8 @@ def audit_log_report(request):
             login_qs = login_qs.filter(timestamp__date__lte=end)
         if username_filter:
             login_qs = login_qs.filter(username__icontains=username_filter)
+        if allowed_usernames is not None:
+            login_qs = login_qs.filter(username__in=allowed_usernames)
         
         for item in login_qs:
             events.append({
@@ -134,6 +159,8 @@ def audit_log_report(request):
             password_qs = password_qs.filter(timestamp__date__lte=end)
         if username_filter:
             password_qs = password_qs.filter(username__icontains=username_filter)
+        if allowed_usernames is not None:
+            password_qs = password_qs.filter(username__in=allowed_usernames)
         
         for item in password_qs:
             events.append({
@@ -153,6 +180,8 @@ def audit_log_report(request):
             location_qs = location_qs.filter(first_seen__date__lte=end)
         if username_filter:
             location_qs = location_qs.filter(user__username__icontains=username_filter)
+        if allowed_usernames is not None:
+            location_qs = location_qs.filter(user__username__in=allowed_usernames)
         
         for item in location_qs:
             location_info = []
@@ -175,23 +204,29 @@ def audit_log_report(request):
 
     if event_type in ["all", "points"]:
         points_qs = PointChangeAudit.objects.select_related('driver', 'sponsor').all()
-        if start:
-            points_qs = points_qs.filter(date__date__gte=start)
-        if end:
-            points_qs = points_qs.filter(date__date__lte=end)
-        if username_filter:
-            points_qs = points_qs.filter(driver__username__icontains=username_filter)
-        
-        for item in points_qs:
-            sponsor_name = item.sponsor.username if item.sponsor else 'System'
-            events.append({
-                'type': 'Point Change',
-                'user': item.driver.username,
-                'timestamp': item.date,
-                'ip': '-',
-                'details': f"Changed by {sponsor_name}: {'+' if item.point_change_amt > 0 else ''}{item.point_change_amt} points. Reason: {item.reason or 'No reason'}",
-                'user_agent': '-'
-            })
+    if start:
+        points_qs = points_qs.filter(date__date__gte=start)
+    if end:
+        points_qs = points_qs.filter(date__date__lte=end)
+    if username_filter:
+        points_qs = points_qs.filter(driver__username__icontains=username_filter)
+    if allowed_usernames is not None:
+        points_qs = points_qs.filter(driver__username__in=allowed_usernames)
+    
+    for item in points_qs:
+        sponsor_name = item.sponsor.username if item.sponsor else 'System'
+        events.append({
+            'type': 'Point Change',
+            'user': item.driver.username,
+            'timestamp': item.date,
+            'ip': '-',
+            'details': (
+                f"Changed by {sponsor_name}: "
+                f"{'+' if item.point_change_amt > 0 else ''}{item.point_change_amt} points. "
+                f"Reason: {item.reason or 'No reason'}"
+            ),
+            'user_agent': '-'
+        })
 
     # Sort by timestamp descending
     events.sort(key=lambda x: x['timestamp'], reverse=True)
@@ -234,7 +269,16 @@ def audit_log_pdf_export(request):
     username_filter = request.GET.get("username", "").strip()
     keyword = request.GET.get("keyword", "").strip().lower()
 
-    # Collect events (same logic as audit_log_report)
+    allowed_usernames = None
+    if not request.user.is_staff:
+        sponsor_profile = getattr(request.user, 'sponsorprofile', None)
+        if sponsor_profile:
+            driver_usernames = DriverSponsor.objects.filter(
+                sponsor=sponsor_profile,
+                approved=True
+            ).select_related('driver__user').values_list('driver__user__username', flat=True)
+            allowed_usernames = set([request.user.username] + list(driver_usernames))
+
     events = []
 
     if event_type in ["all", "login"]:
@@ -245,6 +289,8 @@ def audit_log_pdf_export(request):
             login_qs = login_qs.filter(timestamp__date__lte=end)
         if username_filter:
             login_qs = login_qs.filter(username__icontains=username_filter)
+        if allowed_usernames is not None:
+            login_qs = login_qs.filter(username__in=allowed_usernames)
         
         for item in login_qs:
             events.append({
@@ -263,6 +309,8 @@ def audit_log_pdf_export(request):
             password_qs = password_qs.filter(timestamp__date__lte=end)
         if username_filter:
             password_qs = password_qs.filter(username__icontains=username_filter)
+        if allowed_usernames is not None:
+            password_qs = password_qs.filter(username__in=allowed_usernames)
         
         for item in password_qs:
             events.append({
@@ -281,6 +329,8 @@ def audit_log_pdf_export(request):
             location_qs = location_qs.filter(first_seen__date__lte=end)
         if username_filter:
             location_qs = location_qs.filter(user__username__icontains=username_filter)
+        if allowed_usernames is not None:
+            location_qs = location_qs.filter(user__username__in=allowed_usernames)
         
         for item in location_qs:
             location_info = []
@@ -308,6 +358,8 @@ def audit_log_pdf_export(request):
             points_qs = points_qs.filter(date__date__lte=end)
         if username_filter:
             points_qs = points_qs.filter(driver__username__icontains=username_filter)
+        if allowed_usernames is not None:
+            points_qs = points_qs.filter(driver__username__in=allowed_usernames)
         
         for item in points_qs:
             sponsor_name = item.sponsor.username if item.sponsor else 'System'
