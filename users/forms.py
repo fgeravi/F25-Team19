@@ -286,3 +286,9 @@ class SponsorPointsPolicyForm(forms.ModelForm):
         help_texts = {
             "points_expiration_days": "Set the number of days points remain valid for your drivers."
         }
+
+class AdminBulkImportForm(forms.Form):
+    file = forms.FileField(
+        label="Select a pipe-delimited text file",
+        help_text="Format: Type|Organization|FirstName|LastName|Email"
+    )

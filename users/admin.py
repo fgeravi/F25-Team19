@@ -149,7 +149,7 @@ class UserAdmin(BaseUserAdmin):
     filter_horizontal = ("groups", "user_permissions")
     actions = ["hide_users", "unlock_users"]
 
-    changelist_template = "admin/users/user/change_list.html"
+    change_list_template = "custom_admin/import_list.html"
 
     # --------------------------
     # Inline logic

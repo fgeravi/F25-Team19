@@ -3,7 +3,7 @@ from django.contrib import messages
 from .forms import UserRegisterForm
 from django.contrib.auth.decorators import login_required
 from .forms import AccountForm, DriverProfileForm, SponsorProfileForm, DriverCreationForm, DriverImportForm, SponsorCreationForm
-from .forms import LockedOutAuthenticationForm
+from .forms import LockedOutAuthenticationForm, AdminBulkImportForm, SponsorPointsPolicyForm
 from .forms import NotificationPreferenceForm
 from django.contrib.auth.decorators import login_required
 from .models import DriverNotification  # NEW import
@@ -630,13 +630,17 @@ def notification_delete(request, pk: int):
 
 @staff_member_required
 def admin_import_users_view(request):
-    error_messages = []
-    success_messages = []
-    
-    organizations_in_session = {}
+    context = {
+        'title': 'Bulk Import Organizations & Users',
+        'form': None,
+        'success_messages': [],
+        'error_messages': [],
+    }
 
     if request.method == 'POST':
-        form = DriverImportForm(request.POST, request.FILES)
+        form = AdminBulkImportForm(request.POST, request.FILES)
+        context['form'] = form
+
         if form.is_valid():
             uploaded_file = request.FILES['file']
             try:
@@ -644,78 +648,108 @@ def admin_import_users_view(request):
 
                 for i, line in enumerate(lines):
                     line_num = i + 1
+                    line = line.strip()
+                    if not line: continue
+
                     try:
-                        parts = line.strip().split('|')
-                        user_type = parts[0]
+                        parts = line.split('|')
+                        
+                        if len(parts) < 2:
+                            raise ValueError("Invalid format. Must have at least Type|Organization.")
 
-                        if user_type == 'O':
-                            if len(parts) != 2:
-                                error_messages.append(f"Line {line_num}: Organization ('O') records must have the format O|OrganizationName.")
-                                continue
-                            org_name = parts[1]
-                            if Organization.objects.filter(name=org_name).exists() or org_name in organizations_in_session:
-                                error_messages.append(f"Line {line_num}: Organization '{org_name}' already exists.")
-                                continue
+                        record_type = parts[0].strip().upper()
+                        org_name = parts[1].strip()
+
+                        if record_type == 'O':
+                            if not org_name:
+                                raise ValueError("Organization name is required.")
                             
-                            new_org = Organization.objects.create(name=org_name)
-                            organizations_in_session[org_name] = new_org
-                            success_messages.append(f"Successfully created organization: {org_name}")
+                            obj, created = Organization.objects.get_or_create(name=org_name)
+                            if created:
+                                context['success_messages'].append(f"Line {line_num}: Created Organization '{org_name}'")
+                            else:
+                                context['success_messages'].append(f"Line {line_num}: Organization '{org_name}' already exists.")
 
-                        elif user_type in ['D', 'S']:
+                        elif record_type in ['D', 'S']:
                             if len(parts) != 5:
-                                error_messages.append(f"Line {line_num}: User ('D' or 'S') records must have the format Type|OrgName|FirstName|LastName|Email.")
-                                continue
+                                raise ValueError(f"Invalid format for User. Expected 5 items.")
                             
-                            _, org_name, first_name, last_name, email = parts
+                            first_name = parts[2].strip()
+                            last_name = parts[3].strip()
+                            email = parts[4].strip()
 
                             if not all([org_name, first_name, last_name, email]):
-                                error_messages.append(f"Line {line_num}: Organization, first name, last name, and email are required.")
-                                continue
+                                raise ValueError("All fields are required.")
+                            
+                            try:
+                                organization = Organization.objects.get(name=org_name)
+                            except Organization.DoesNotExist:
+                                raise ValueError(f"Organization '{org_name}' not found. Create it with an 'O' record first.")
+
                             if User.objects.filter(email=email).exists():
-                                error_messages.append(f"Line {line_num}: User with email '{email}' already exists.")
-                                continue
+                                raise ValueError(f"User with email '{email}' already exists.")
 
-                            organization = None
-                            if org_name in organizations_in_session:
-                                organization = organizations_in_session[org_name]
-                            else:
-                                try:
-                                    organization = Organization.objects.get(name=org_name)
-                                except Organization.DoesNotExist:
-                                    error_messages.append(f"Line {line_num}: Organization '{org_name}' not found. It must exist or be created earlier in this file.")
-                                    continue
-                            
-                            temp_password = get_random_string(10)
-                            user = User.objects.create_user(username=email, email=email, first_name=first_name, last_name=last_name, password=temp_password)
+                            temp_password = get_random_string(12)
+                            user = User.objects.create_user(
+                                username=email,
+                                email=email,
+                                first_name=first_name,
+                                last_name=last_name,
+                                password=temp_password
+                            )
 
-                            if user_type == 'D':
-                                user.is_driver = True
-                                DriverProfile.objects.create(user=user, organization=organization)
-                            elif user_type == 'S':
+                            if record_type == 'S':
                                 user.is_sponsor = True
-                                SponsorProfile.objects.create(user=user, organization=organization)
-                            
-                            user.save()
-                            success_messages.append(f"Successfully created {email} in '{org_name}'. Password: {temp_password}")
-                        
+                                user.save()
+                                
+                                SponsorProfile.objects.create(
+                                    user=user,
+                                    organization=organization,
+                                    company_name=org_name
+                                )
+                                context['success_messages'].append(
+                                    f"Line {line_num}: Created Sponsor {email}. <strong>Password: {temp_password}</strong>"
+                                )
+
+                            elif record_type == 'D':
+                                user.is_driver = True
+                                user.save()
+                                
+                                driver_profile = DriverProfile.objects.create(
+                                    user=user,
+                                    organization=organization,
+                                    license_number="Pending Import",
+                                    vehicle_info="Pending Import"
+                                )
+
+                                first_sponsor = SponsorProfile.objects.filter(organization=organization).first()
+                                
+                                if first_sponsor:
+                                    DriverSponsor.objects.create(
+                                        driver=driver_profile,
+                                        sponsor=first_sponsor,
+                                        approved=True
+                                    )
+                                    context['success_messages'].append(
+                                        f"Line {line_num}: Created Driver {email}. Linked to {first_sponsor.user.email}. <strong>Password: {temp_password}</strong>"
+                                    )
+                                else:
+                                    context['success_messages'].append(
+                                        f"Line {line_num}: Created Driver {email}. WARNING: No Sponsor found in {org_name}. <strong>Password: {temp_password}</strong>"
+                                    )
+
                         else:
-                            error_messages.append(f"Line {line_num}: Invalid record type '{user_type}'. Must be 'O', 'D', or 'S'.")
+                            context['error_messages'].append(f"Line {line_num}: Invalid Type '{record_type}'")
 
                     except Exception as e:
-                        error_messages.append(f"Line {line_num}: An unexpected error occurred - {e}")
-
+                        context['error_messages'].append(f"Line {line_num} Error: {str(e)}")
+            
+            except UnicodeDecodeError:
+                context['error_messages'].append("File must be a valid UTF-8 text file.")
             except Exception as e:
-                messages.error(request, f"Could not read or process the file. Error: {e}")
+                context['error_messages'].append(f"Fatal error reading file: {str(e)}")
     else:
-        form = DriverImportForm()
-
-    context = {
-        'form': form,
-        'error_messages': error_messages,
-        'success_messages': success_messages,
-        'title': 'Import Users and Organizations',
-        'has_permission': True,
-    }
+        context['form'] = AdminBulkImportForm()
     return render(request, 'admin/users/user/import_users.html', context)
 
 def login_view(request):
