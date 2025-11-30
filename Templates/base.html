@@ -13,10 +13,27 @@
   </head>
 
   <body class="
-  {% if request.resolver_match and request.resolver_match.url_name == 'login' %}aurora-login{% endif %}
-  {% if request.resolver_match and request.resolver_match.url_name == 'home' %} home-aurora{% endif %}
-  {% if request.resolver_match and request.resolver_match.namespace == 'notifications' and request.resolver_match.url_name == 'list' %} notifications-page{% endif %}
+  {% if request.resolver_match and request.resolver_match.url_name == 'login' %}
+    aurora-login
+  {% endif %}
+
+  {% if request.resolver_match and request.resolver_match.url_name == 'home' %}
+    home-aurora
+    {% if user.is_authenticated and user.is_driver %}
+      driver-theme
+    {% endif %}
+    {% if user.is_authenticated and user.is_sponsor %}
+      sponsor-theme
+    {% endif %}
+  {% endif %}
+
+  {% if request.resolver_match
+        and request.resolver_match.namespace == 'notifications'
+        and request.resolver_match.url_name == 'list' %}
+        notifications-page
+  
   ">
+
     <!-- Hidden global CSRF token for AJAX -->
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
