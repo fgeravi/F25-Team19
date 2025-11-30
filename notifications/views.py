@@ -174,24 +174,62 @@ def mark_all_read(request):
 @login_required
 def mark_one_read(request, pk):
     """
-    Mark a single notification as read, respecting the user scoping
-    from _resolve_model_and_qs.
+    Mark a single notification as read for the current user.
+
+    Works for both:
+    - regular notifications list (non-archived)
+    - archived notifications list
     """
     Model, qs = _resolve_model_and_qs(request.user)
     if Model is None:
         return redirect("notifications:list")
 
-    # Use qs so we never touch another user's notification.
-    n = get_object_or_404(qs, pk=pk)
+    notif = None
 
-    if _mark_read_fields(n):
+    # 1) Try to find it in the "active" (non-archived) queryset
+    if qs is not None:
+        try:
+            notif = qs.get(pk=pk)
+        except Model.DoesNotExist:
+            notif = None
+
+    # 2) If not found there, try the archived queryset
+    if notif is None:
+        _, archived_qs = _resolve_model_and_qs(request.user, archived=True)
+        if archived_qs is None:
+            raise Http404("Notification not found.")
+        notif = get_object_or_404(archived_qs, pk=pk)
+
+    # 3) Apply "read" semantics (this handles read_at / status)
+    changed = False
+
+    if hasattr(notif, "read_at") and getattr(notif, "read_at") is None:
+        notif.read_at = now()
+        changed = True
+
+    if hasattr(notif, "status"):
+        try:
+            field = notif._meta.get_field("status")
+            choices = {c[0] for c in getattr(field, "choices", [])}
+            cur = getattr(notif, "status", None)
+            if cur in {"NEW", "UNREAD"}:
+                if "READ" in choices:
+                    notif.status = "READ"
+                    changed = True
+                elif "OPENED" in choices:
+                    notif.status = "OPENED"
+                    changed = True
+        except Exception:
+            pass
+
+    if changed:
+        # Only update actual DB fields (no properties like is_read)
         update_fields = []
         if _has_field(Model, "read_at"):
             update_fields.append("read_at")
         if _has_field(Model, "status"):
             update_fields.append("status")
-
-        n.save(update_fields=update_fields or None)
+        notif.save(update_fields=update_fields or None)
 
     return redirect("notifications:list")
 
