@@ -42,14 +42,32 @@ def home(request):
         try:
             driver_profile = request.user.driverprofile
 
-            # Get all active sponsorships
-            driver_sponsorships = driver_profile.sponsorships.filter(approved=True)
+            # All approved sponsorships for this driver,
+            # with per-sponsor active points and org preloaded
+            driver_sponsorships = (
+                driver_profile.sponsorships
+                .filter(approved=True)
+                .select_related("sponsor__user", "sponsor__organization")
+                .annotate(
+                    active_points=Coalesce(
+                        Sum(
+                            "point_entries__points",
+                            filter=Q(point_entries__expiry_at__gt=timezone.now())
+                        ),
+                        Value(0),
+                    )
+                )
+            )
 
-            # CORRECT WAY: Sum all non-expired points across ALL sponsors
-            total_points = DriverSponsorPoints.objects.filter(
-                driver_sponsor__driver=driver_profile,
-                expiry_at__gt=timezone.now()
-            ).aggregate(total=Sum('points'))['total'] or 0
+            # TOTAL points across ALL sponsors (non-expired)
+            total_points = (
+                DriverSponsorPoints.objects.filter(
+                    driver_sponsor__driver=driver_profile,
+                    expiry_at__gt=timezone.now(),
+                )
+                .aggregate(total=Coalesce(Sum("points"), Value(0)))["total"]
+                or 0
+            )
 
         except DriverProfile.DoesNotExist:
             pass  # User is_driver=True but no profile yet

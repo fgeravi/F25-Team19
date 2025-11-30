@@ -60,25 +60,54 @@
       </div>
 
       {% if driver_sponsorships %}
+        <div class="panel" style="margin-top:16px;margin-bottom:16px;">
+          <h3 style="margin-top:0;">Total Active Points</h3>
+          <p style="font-size:20px;font-weight:700;margin:0;">
+            {{ total_points }} pts
+          </p>
+          <p class="text-muted" style="margin-top:4px;">
+            Combined from all active sponsors.
+          </p>
+        </div>
+
         <div class="panel">
-          <h3 style="margin-top:0;">Approved Sponsors</h3>
-          <ul style="list-style:none;padding:0;margin:0;">
-            {% for ds in driver_sponsorships %}
-              <li class="card" style="margin-bottom:10px;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-                  <div>
-                    <div style="font-weight:600;">{{ ds.sponsor.company_name }}</div>
-                    <div class="text-muted small">{{ ds.points }} points</div>
-                  </div>
-                  {% if ds.sponsor %}
-                    <a href="{% url 'catalogue:view_catalogue' ds.sponsor.id %}" class="btn-pill">
-                     Browse Catalogue
-                    </a>
-                  {% endif %}
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
+          <h3 style="margin-top:0;">Approved Sponsors &amp; Points</h3>
+          <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0">
+              <thead>
+                <tr>
+                  <th>Sponsor</th>
+                  <th>Organization</th>
+                  <th class="text-end">Active Points</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for ds in driver_sponsorships %}
+                  <tr>
+                    <td>
+                      {{ ds.sponsor.user.get_full_name|default:ds.sponsor.user.username }}
+                    </td>
+                    <td>
+                      {{ ds.sponsor.organization.name }}
+                    </td>
+                    <td class="text-end">
+                      {{ ds.active_points }}
+                    </td>
+                    <td class="text-end">
+                      {% if ds.sponsor %}
+                        <a
+                          href="{% url 'catalogue:view_catalogue' ds.sponsor.id %}"
+                          class="btn-pill btn-outline">
+                          Browse Catalogue
+                        </a>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       {% else %}
         <div class="panel">

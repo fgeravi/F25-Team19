@@ -5,6 +5,7 @@
     <title>{% block title %}My Site{% endblock %}</title>
     {% load static %}
     {% load notifications_extras %}
+    {% load points_extras %}
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <link rel="stylesheet" href="{% static 'css/app-aurora.css' %}">
@@ -96,16 +97,16 @@
         </div>
         
         <div class="nav-right">
-          {% if user.is_authenticated and user.is_driver %}
-              <span class="points-badge" title="Total points from all sponsors">
-                  {{ header_total_points }} pts
-              </span>
+          {% if user.is_driver %}
+            {% total_driver_points as nav_total_points %}
+            <span class="points-badge">
+              {{ nav_total_points }} pts
+            </span>
           {% endif %}
-          
+
           <a href="{% url 'submit_issue' %}" class="link-button">Report Issue</a>
-        
           <a href="{% url 'account_management' %}" class="link-button">Edit account</a>
-          <form action="{% url 'logout' %}" method="post">
+          <form action="{% url 'logout' %}" method="post" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="link-button">Logout</button>
           </form>
