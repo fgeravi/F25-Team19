@@ -1,0 +1,36 @@
+{% extends 'reports/base_reports.html' %}
+
+{% block report_title %}Sales by Driver{% endblock %}
+
+{% block report_content %}
+<div class="table-responsive">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Driver</th>
+                <th>Sponsor Org</th>
+                <th>Date</th>
+                <th>Items Count</th>
+                <th style="text-align: right;">Points Spent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in report_data %}
+            <tr>
+                <td style="font-weight: bold; color: var(--text);">{{ row.driver }}</td>
+                <td>{{ row.sponsor }}</td>
+                <td>{{ row.date|date:"Y-m-d H:i" }}</td>
+                <td>{{ row.item_count }}</td>
+                <td style="text-align: right;">{{ row.points }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align:center; padding: 32px; color: var(--text-dim);">
+                    No sales found for the selected criteria.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

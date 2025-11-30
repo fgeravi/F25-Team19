@@ -1,0 +1,50 @@
+{% extends 'reports/base_reports.html' %}
+
+{% block report_title %}System Audit Log{% endblock %}
+
+{% block report_content %}
+<div class="table-responsive">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Actor (Who)</th>
+                <th>Target (Whom)</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>
+                    {% if log.type == 'Login' %}
+                        <span class="points-badge" style="background:rgba(255,255,255,0.1); border-color:transparent;">Login</span>
+                    {% elif log.type == 'Password Change' %}
+                        <span class="points-badge" style="background:rgba(255,255,255,0.1); border-color:transparent;">Password</span>
+                    {% elif log.type == 'App Decision' %}
+                        <span class="points-badge" style="background:rgba(0, 212, 255, 0.1); color:#00d4ff; border-color:transparent;">App</span>
+                    {% elif log.type == 'Profile Edit' %}
+                        <span class="points-badge" style="background:rgba(255, 193, 7, 0.1); color:#ffc107; border-color:transparent;">Profile</span>
+                    {% elif log.type == 'Point Change' %}
+                        <span class="points-badge" style="background:rgba(74, 222, 128, 0.1); color:#4ade80; border-color:transparent;">Points</span>
+                    {% else %}
+                        {{ log.type }}
+                    {% endif %}
+                </td>
+                <td style="white-space:nowrap;">{{ log.date|date:"Y-m-d H:i" }}</td>
+                <td style="font-weight:bold;">{{ log.actor }}</td>
+                <td>{{ log.target }}</td>
+                <td style="color: var(--text-dim);">{{ log.details }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align:center; padding: 32px; color: var(--text-dim);">
+                    No logs found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -39,6 +39,7 @@ urlpatterns = [
     path("catalog/", include("catalogue.urls")),
     path("audit/", include(("audit.urls", "audit"), namespace="audit")),
     path("issues/", include("issues.urls")),
+    path("reports/", include("reports.urls")),
 
     # Password change
     path(

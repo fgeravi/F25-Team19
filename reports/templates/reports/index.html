@@ -1,0 +1,51 @@
+{% extends 'reports/base_reports.html' %}
+
+{% block report_title %}Reports Dashboard{% endblock %}
+
+{% block report_content %}
+<div class="dashboard-grid">
+
+    <!-- SPONSOR CARD -->
+    {% if user.is_sponsor %}
+    <div class="dashboard-card">
+        <h3>Sponsor Reports</h3>
+        <p style="color: var(--text-dim); margin-bottom: 24px; min-height: 40px;">
+            Monitor your drivers' point balances, history, and profile changes.
+        </p>
+        <div class="report-links">
+            <a href="{% url 'reports:sponsor_point_tracking' %}" class="btn-pill btn-outline" style="justify-content: center; display:flex;">
+                Driver Point Tracking
+            </a>
+            <a href="{% url 'reports:sponsor_audit_log' %}" class="btn-pill btn-outline" style="justify-content: center; display:flex;">
+                Audit Log (My Drivers)
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ADMIN CARD -->
+    {% if user.is_staff or user.is_superuser %}
+    <div class="dashboard-card">
+        <h3>Admin Reports</h3>
+        <p style="color: var(--text-dim); margin-bottom: 24px; min-height: 40px;">
+            Analyze system-wide sales, generate billing invoices, and audit security.
+        </p>
+        <div class="report-links">
+            <a href="{% url 'reports:admin_sales_by_sponsor' %}" class="btn-pill btn-outline" style="justify-content: center; display:flex;">
+                Sales by Sponsor
+            </a>
+            <a href="{% url 'reports:admin_sales_by_driver' %}" class="btn-pill btn-outline" style="justify-content: center; display:flex;">
+                Sales by Driver
+            </a>
+            <a href="{% url 'reports:admin_invoice' %}" class="btn-pill btn-outline" style="justify-content: center; display:flex;">
+                View Invoices
+            </a>
+            <a href="{% url 'reports:admin_audit_log' %}" class="btn-pill btn-outline" style="justify-content: center; display:flex;">
+                System Audit Log
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

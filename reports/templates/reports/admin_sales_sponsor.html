@@ -1,0 +1,47 @@
+{% extends 'reports/base_reports.html' %}
+
+{% block report_title %}Sales by Sponsor{% endblock %}
+
+{% block report_content %}
+<!-- Summary Card -->
+<div class="dashboard-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+    <div>
+        <h3 style="border:none; margin:0; padding:0; color:var(--text);">Total Points Sales</h3>
+        <span style="color:var(--text-dim)">For the selected period</span>
+    </div>
+    <div style="font-size: 2rem; font-weight: bold; color: var(--accent);">
+        {{ total_sales }} pts
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Order ID</th>
+                <th>Date</th>
+                <th>Sponsor Org</th>
+                <th>Driver</th>
+                <th style="text-align: right;">Points Spent</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in report_data %}
+            <tr>
+                <td>#{{ row.order_id }}</td>
+                <td>{{ row.date|date:"Y-m-d H:i" }}</td>
+                <td>{{ row.sponsor }}</td>
+                <td>{{ row.driver }}</td>
+                <td style="text-align: right; font-weight: bold;">{{ row.points }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align:center; padding: 32px; color: var(--text-dim);">
+                    No sales found.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

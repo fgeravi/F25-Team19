@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "catalogue.apps.CatalogueConfig",
     "hijack",
     "hijack.contrib.admin",
+    "reports",
 ]
 
 # =========================

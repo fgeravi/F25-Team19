@@ -1,5 +1,8 @@
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.shortcuts import redirect
+from django.urls import reverse
+from django.db import models
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 from .forms import LockedOutAdminAuthenticationForm
 from .models import (
@@ -220,6 +223,21 @@ class LockoutConfigAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return not LockoutConfig.objects.exists()
 
+
+class ReportsDashboard(models.Model):
+    class Meta:
+        verbose_name_plural = "Go to Reports Dashboard"
+        app_label = 'reports'
+
+@admin.register(ReportsDashboard)
+class ReportsDashboardAdmin(admin.ModelAdmin):
+    def get_model_perms(self, request):
+        """Visible only to staff"""
+        return {'view': True}
+
+    def changelist_view(self, request, extra_context=None):
+        """Redirect to the actual reports page when clicked"""
+        return redirect(reverse('reports:index'))
 
 # --------------------------
 # FailedLoginAttempt Admin

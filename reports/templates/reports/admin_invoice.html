@@ -1,0 +1,49 @@
+{% extends 'reports/base_reports.html' %}
+
+{% block report_title %}Sponsor Invoices{% endblock %}
+
+{% block report_content %}
+
+{% for inv in invoices %}
+<div class="dashboard-card" style="margin-bottom: 24px;">
+    <!-- Invoice Header -->
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2a343a; padding-bottom:12px; margin-bottom:16px;">
+        <div>
+            <h3 style="border:none; margin:0; padding:0; font-size:1.4rem;">{{ inv.org_name }}</h3>
+            <span style="color:var(--text-dim); font-size:0.9rem;">Rate: ${{ inv.point_rate }}/point</span>
+        </div>
+        <div style="text-align:right;">
+            <div style="color:var(--text-dim); font-size:0.8rem; text-transform:uppercase; letter-spacing:1px;">Total Due</div>
+            <div style="font-size:1.5rem; color:var(--accent); font-weight:bold;">${{ inv.total_fee }}</div>
+        </div>
+    </div>
+    
+    <!-- Invoice Table -->
+    <table class="report-table" style="background: transparent;">
+        <thead>
+            <tr>
+                <th style="background:rgba(255,255,255,0.05);">Driver</th>
+                <th style="background:rgba(255,255,255,0.05); text-align: right;">Points Spent</th>
+                <th style="background:rgba(255,255,255,0.05); text-align: right;">Est. Fee</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for driver, points in inv.drivers.items %}
+            <tr>
+                <td>{{ driver }}</td>
+                <td style="text-align: right;">{{ points }}</td>
+                <td style="text-align: right;" class="val-money">
+                    ${% widthratio points 1 inv.point_rate %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% empty %}
+<div class="dashboard-card" style="text-align: center; color: var(--text-dim);">
+    No invoice data found for the selected date range.
+</div>
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'reports/base_reports.html' %}
+
+{% block report_title %}Driver Point Tracking{% endblock %}
+
+{% block report_content %}
+<div class="table-responsive">
+    <table class="report-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Driver</th>
+                <th>Change</th>
+                <th>New Balance</th>
+                <th>Reason</th>
+                <th>Awarded By</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.date|date:"M d, Y H:i" }}</td>
+                <td>{{ log.driver.username }}</td>
+                <td class="{% if log.point_change_amt > 0 %}val-pos{% else %}val-neg{% endif %}">
+                    {% if log.point_change_amt > 0 %}+{% endif %}{{ log.point_change_amt }}
+                </td>
+                <td>{{ log.new_point_balance }}</td>
+                <td>{{ log.reason }}</td>
+                <td style="color: var(--text-dim);">{{ log.sponsor.username|default:"System" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align:center; padding: 32px; color: var(--text-dim);">
+                    No point changes found for the selected criteria.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

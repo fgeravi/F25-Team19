@@ -56,7 +56,14 @@
             <a href="{% url 'catalogue:orders_csv' %}">Download Orders CSV</a>
             <a href="{% url 'manage_drivers' %}">Manage Drivers </a>
             <a href="{% url 'driver_performance' %}">Driver Performance</a>
-            <a href="{%url 'rewards:add_points'%}">Add Points</a>
+            <a href="{% url 'rewards:add_points' %}">Add Points</a>
+            <a href="{% url 'reports:index' %}">Reports</a> 
+          {% endif %}
+
+          {% if user.is_staff or user.is_superuser %}
+            <a href="{% url 'reports:index' %}" class="link-button" style="color: var(--accent);">
+                Admin Reports
+            </a>
           {% endif %}
 
           {% unread_notifications_count as unread_count %}
