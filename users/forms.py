@@ -2,7 +2,7 @@
 
 from django import forms
 from django import forms
-from .models import DriverProfile
+from .models import DriverProfile, DriverSponsor
 from organizations.models import Organization
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.admin.forms import AdminAuthenticationForm
@@ -214,17 +214,32 @@ class DriverCreationForm(forms.ModelForm):
             raise forms.ValidationError("The two temporary passwords do not match.")
         return password2
 
-    def save(self, commit=True, organization=None):
+    def save(self, commit=True, sponsor_profile=None):
+        """
+        Saves the user and creates a DriverProfile.
+        If a 'sponsor_profile' is passed, creates the DriverSponsor relationship.
+        """
         user = super().save(commit=False)
-        
         user.set_password(self.cleaned_data["password"])
-
         user.is_driver = True
         
         if commit:
             user.save()
-            if organization:
-                DriverProfile.objects.create(user=user, organization=organization)
+            org = sponsor_profile.organization if sponsor_profile else None
+            
+            driver_profile = DriverProfile.objects.create(
+                user=user, 
+                organization=org,
+                license_number="Pending",
+                vehicle_info="Pending"
+            )
+            if sponsor_profile:
+                DriverSponsor.objects.create(
+                    driver=driver_profile,
+                    sponsor=sponsor_profile,
+                    approved=True
+                )
+                
         return user
     
 class SponsorCreationForm(forms.ModelForm):
@@ -242,7 +257,7 @@ class SponsorCreationForm(forms.ModelForm):
             raise forms.ValidationError("The two temporary passwords do not match.")
         return password2
 
-    def save(self, commit=True, organization=None):
+    def save(self, commit=True, organization=None, company_name="Unknown"):
         user = super().save(commit=False)
         user.set_password(self.cleaned_data["password"])
         user.is_sponsor = True
@@ -250,8 +265,13 @@ class SponsorCreationForm(forms.ModelForm):
         if commit:
             user.save()
             if organization:
-                SponsorProfile.objects.create(user=user, organization=organization)
+                SponsorProfile.objects.create(
+                    user=user, 
+                    organization=organization,
+                    company_name=company_name
+                )
         return user
+
     
 class DriverImportForm(forms.Form):
     file = forms.FileField(label="Select a pipe-delimited text file (.txt)")

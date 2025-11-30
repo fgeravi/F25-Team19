@@ -431,8 +431,8 @@ def import_drivers_view(request):
         return redirect('home')
 
     try:
-        sponsor_profile = request.user.sponsorprofile
-        sponsor_organization = sponsor_profile.organization
+        current_sponsor_profile = request.user.sponsorprofile
+        sponsor_organization = current_sponsor_profile.organization
     except SponsorProfile.DoesNotExist:
         messages.error(request, "Your sponsor profile could not be found.")
         return redirect('home')
@@ -450,19 +450,27 @@ def import_drivers_view(request):
 
                 for i, line in enumerate(lines):
                     line_num = i + 1
+                    if not line.strip():
+                        continue
+
                     try:
                         parts = line.strip().split('|')
 
                         if len(parts) != 5:
                             error_messages.append(
-                                f"Line {line_num}: Invalid format. Must be 5 values per line (e.g., D||FirstName|LastName|Email)."
+                                f"Line {line_num}: Invalid format. Expected 5 pipes. (e.g., D||First|Last|Email)."
                             )
                             continue
 
                         user_type, _, first_name, last_name, email = parts
 
+                        user_type = user_type.upper().strip()
+                        first_name = first_name.strip()
+                        last_name = last_name.strip()
+                        email = email.strip()
+
                         if user_type not in ['D', 'S']:
-                            error_messages.append(f"Line {line_num}: Invalid user type '{user_type}'.")
+                            error_messages.append(f"Line {line_num}: Invalid user type '{user_type}'. Must be 'D' or 'S'.")
                             continue
                         if not all([first_name, last_name, email]):
                             error_messages.append(
@@ -476,7 +484,6 @@ def import_drivers_view(request):
                             continue
 
                         temp_password = get_random_string(10)
-
                         user = User.objects.create_user(
                             username=email,
                             email=email,
@@ -487,29 +494,38 @@ def import_drivers_view(request):
 
                         if user_type == 'D':
                             user.is_driver = True
+                            user.save()
+
                             driver_profile = DriverProfile.objects.create(
-                                user=user, organization=sponsor_organization
+                                user=user,
+                                organization=sponsor_organization,
+                                license_number="Pending", 
+                                vehicle_info="Pending",
+                                current_points=0
                             )
 
-                            # Automatically create a DriverSponsor relationship
-                            from .models import DriverSponsor
                             DriverSponsor.objects.create(
                                 driver=driver_profile,
-                                sponsor=sponsor_profile,
+                                sponsor=current_sponsor_profile,
                                 approved=True
                             )
 
                         elif user_type == 'S':
                             user.is_sponsor = True
-                            SponsorProfile.objects.create(user=user, organization=sponsor_organization)
+                            user.save()
 
-                        user.save()
+                            SponsorProfile.objects.create(
+                                user=user, 
+                                organization=sponsor_organization,
+                                company_name=current_sponsor_profile.company_name
+                            )
+
                         success_messages.append(
-                            f"Successfully created user for {email}. Temporary password: {temp_password}"
+                            f"Created {user_type}: {email} (Pwd: {temp_password})"
                         )
 
                     except Exception as e:
-                        error_messages.append(f"Line {line_num}: An unexpected error occurred - {e}")
+                        error_messages.append(f"Line {line_num}: Error processing line - {str(e)}")
 
             except Exception as e:
                 messages.error(request, f"Could not read the uploaded file. Error: {e}")
