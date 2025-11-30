@@ -4,8 +4,50 @@ from django.utils.timezone import now
 from django.apps import apps
 from django.http import Http404
 
+
 def _has_field(model, name: str) -> bool:
+    """
+    True if `name` is a real, concrete field on this model.
+    """
     return name in {f.name for f in model._meta.get_fields()}
+
+
+def _mark_read_fields(obj) -> bool:
+    """
+    Apply 'read' semantics to a notification object using only
+    real DB fields (e.g. read_at, status). Never touches properties
+    like `is_read` directly.
+
+    Returns True if anything was changed.
+    """
+    changed = False
+    Model = obj.__class__
+
+    # If the model has a read_at field and it's empty, set it.
+    if _has_field(Model, "read_at") and getattr(obj, "read_at", None) is None:
+        obj.read_at = now()
+        changed = True
+
+    # If there is a status field with choices, try to flip UNREAD/NEW -> READ/OPENED
+    if _has_field(Model, "status"):
+        try:
+            field = obj._meta.get_field("status")
+            choices = {c[0] for c in getattr(field, "choices", [])}
+            cur = getattr(obj, "status", None)
+
+            if cur in {"NEW", "UNREAD"}:
+                if "READ" in choices:
+                    obj.status = "READ"
+                    changed = True
+                elif "OPENED" in choices:
+                    obj.status = "OPENED"
+                    changed = True
+        except Exception:
+            # Don't let a weird status field blow things up.
+            pass
+
+    return changed
+
 
 def _resolve_model_and_qs(user, archived=None):
     """
@@ -93,38 +135,6 @@ def _resolve_model_and_qs(user, archived=None):
 
     return None, None
 
-def _mark_read_fields(obj) -> bool:
-    """
-    Sets 'read' semantics on the object if those fields exist.
-    Returns True if anything changed.
-    """
-    changed = False
-
-    if hasattr(obj, "is_read") and not getattr(obj, "is_read"):
-        obj.is_read = True
-        changed = True
-
-    if hasattr(obj, "read_at") and getattr(obj, "read_at") is None:
-        obj.read_at = now()
-        changed = True
-
-    if hasattr(obj, "status"):
-        try:
-            field = obj._meta.get_field("status")
-            choices = {c[0] for c in getattr(field, "choices", [])}
-            cur = getattr(obj, "status", None)
-            if cur in {"NEW", "UNREAD"}:
-                if "READ" in choices:
-                    obj.status = "READ"
-                    changed = True
-                elif "OPENED" in choices:
-                    obj.status = "OPENED"
-                    changed = True
-        except Exception:
-            pass
-
-    return changed
-
 
 @login_required
 def list_notifications(request):
@@ -136,17 +146,19 @@ def list_notifications(request):
 
 @login_required
 def mark_all_read(request):
+    """
+    Bulk mark all notifications as read for this user.
+    Only touches real DB fields (read_at, status).
+    """
     Model, qs = _resolve_model_and_qs(request.user)
     if Model is None:
         return redirect("notifications:list")
 
-    fields = {f.name for f in Model._meta.get_fields()}
-
-    if "is_read" in fields:
-        qs.update(is_read=True)
-    if "read_at" in fields:
+    # Do NOT touch is_read here – it's a property, not a DB field.
+    if _has_field(Model, "read_at"):
         qs.filter(read_at__isnull=True).update(read_at=now())
-    if "status" in fields:
+
+    if _has_field(Model, "status"):
         try:
             choices = {c[0] for c in Model._meta.get_field("status").choices}
             if "READ" in choices:
@@ -161,15 +173,25 @@ def mark_all_read(request):
 
 @login_required
 def mark_one_read(request, pk):
+    """
+    Mark a single notification as read, respecting the user scoping
+    from _resolve_model_and_qs.
+    """
     Model, qs = _resolve_model_and_qs(request.user)
     if Model is None:
         return redirect("notifications:list")
 
-    n = get_object_or_404(qs.model, pk=pk)
+    # Use qs so we never touch another user's notification.
+    n = get_object_or_404(qs, pk=pk)
 
     if _mark_read_fields(n):
-        to_update = [name for name in ("is_read", "read_at", "status") if hasattr(n, name)]
-        n.save(update_fields=to_update if to_update else None)
+        update_fields = []
+        if _has_field(Model, "read_at"):
+            update_fields.append("read_at")
+        if _has_field(Model, "status"):
+            update_fields.append("status")
+
+        n.save(update_fields=update_fields or None)
 
     return redirect("notifications:list")
 
@@ -184,7 +206,7 @@ def archive_notification(request, pk):
     if Model is None:
         return redirect("notifications:list")
 
-    n = get_object_or_404(qs.model, pk=pk)
+    n = get_object_or_404(qs, pk=pk)
     fields = {f.name for f in Model._meta.get_fields()}
 
     if "archived" in fields:
