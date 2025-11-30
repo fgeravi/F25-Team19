@@ -28,12 +28,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for driver, points in inv.drivers.items %}
+            {% for d in inv.drivers %}
             <tr>
-                <td>{{ driver }}</td>
-                <td style="text-align: right;">{{ points }}</td>
+                <!-- Matches keys in views.py -->
+                <td>{{ d.name }}</td>
+                <td style="text-align: right;">{{ d.points }}</td>
                 <td style="text-align: right;" class="val-money">
-                    ${% widthratio points 1 inv.point_rate %}
+                    ${{ d.fee }}
                 </td>
             </tr>
             {% endfor %}

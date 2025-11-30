@@ -158,6 +158,22 @@
         gap: 16px;
         margin-top: 24px;
     }
+
+    @media print {
+        .home-aurora, body { background: white !important; color: black !important; }
+        .dashboard-card, .filter-panel, .table-responsive {
+            background: white !important;
+            border: 1px solid #ccc !important;
+            box-shadow: none !important;
+        }
+        .report-title, h3, th, td { color: black !important; text-shadow: none !important; }
+        .report-header a, .filter-panel, .btn-pill, .points-badge { display: none !important; } /* Hide buttons/forms */
+        .report-table th { background-color: #f0f0f0 !important; color: black !important; border-bottom: 2px solid #000 !important; }
+        .report-table td { border-bottom: 1px solid #ddd !important; }
+        
+        /* Ensure the invoice table expands fully */
+        .reports-container { max-width: 100% !important; padding: 0 !important; }
+    }
 </style>
 
 <div class="home-aurora" style="min-height: 100vh; padding-bottom: 40px;">

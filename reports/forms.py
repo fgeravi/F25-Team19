@@ -39,8 +39,8 @@ class SponsorAuditFilterForm(DateRangeForm):
     CAT_CHOICES = [
         ('', 'All Categories'),
         ('profile', 'Profile Changes'),
-        ('application', 'Application Decisions'), # Added
-        ('point', 'Point Changes'),               # Added
+        ('application', 'Application Decisions'),
+        ('point', 'Point Changes'),              
     ]
     category = forms.ChoiceField(
         choices=CAT_CHOICES, 
@@ -49,10 +49,22 @@ class SponsorAuditFilterForm(DateRangeForm):
     )
 
 class AdminFilterForm(DateRangeForm):
+    VIEW_CHOICES = [
+        ('detailed', 'Detailed List (Every Order)'),
+        ('summary', 'Summary (Totals Only)'),
+    ]
+    
     sponsor = forms.ModelChoiceField(
         queryset=SponsorProfile.objects.select_related('organization').all(),
         required=False,
         empty_label="All Sponsors",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    view_type = forms.ChoiceField(
+        choices=VIEW_CHOICES, 
+        initial='detailed',
+        required=False, 
         widget=forms.Select(attrs={'class': 'form-select'})
     )
 
@@ -70,8 +82,8 @@ class AdminAuditFilterForm(DateRangeForm):
         ('login', 'Login Attempts'),
         ('password', 'Password Changes'),
         ('profile', 'Driver Profile Changes'),
-        ('application', 'Application Decisions'), # Added
-        ('point', 'Point Changes'),               # Added
+        ('application', 'Application Decisions'),
+        ('point', 'Point Changes'),               
     ]
     sponsor = forms.ModelChoiceField(
         queryset=SponsorProfile.objects.all(),

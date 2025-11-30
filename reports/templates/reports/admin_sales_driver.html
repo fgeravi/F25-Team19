@@ -7,21 +7,33 @@
     <table class="report-table">
         <thead>
             <tr>
-                <th>Driver</th>
-                <th>Sponsor Org</th>
-                <th>Date</th>
-                <th>Items Count</th>
-                <th style="text-align: right;">Points Spent</th>
+                {% if view_type == 'summary' %}
+                    <th>Driver</th>
+                    <th>Sponsor Org</th>
+                    <th style="text-align: right;">Total Points Spent</th>
+                {% else %}
+                    <th>Driver</th>
+                    <th>Sponsor Org</th>
+                    <th>Date</th>
+                    <th>Items Count</th>
+                    <th style="text-align: right;">Points Spent</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
             {% for row in report_data %}
             <tr>
-                <td style="font-weight: bold; color: var(--text);">{{ row.driver }}</td>
-                <td>{{ row.sponsor }}</td>
-                <td>{{ row.date|date:"Y-m-d H:i" }}</td>
-                <td>{{ row.item_count }}</td>
-                <td style="text-align: right;">{{ row.points }}</td>
+                {% if view_type == 'summary' %}
+                    <td style="font-weight: bold; color: var(--text);">{{ row.driver }}</td>
+                    <td>{{ row.sponsor }}</td>
+                    <td style="text-align: right; font-family: monospace;">{{ row.points }}</td>
+                {% else %}
+                    <td style="font-weight: bold; color: var(--text);">{{ row.driver }}</td>
+                    <td>{{ row.sponsor }}</td>
+                    <td>{{ row.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ row.item_count }}</td>
+                    <td style="text-align: right;">{{ row.points }}</td>
+                {% endif %}
             </tr>
             {% empty %}
             <tr>

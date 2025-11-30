@@ -6,8 +6,10 @@
 <!-- Summary Card -->
 <div class="dashboard-card" style="margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
     <div>
-        <h3 style="border:none; margin:0; padding:0; color:var(--text);">Total Points Sales</h3>
-        <span style="color:var(--text-dim)">For the selected period</span>
+        <h3 style="border:none; margin:0; padding:0; color:var(--text);">Total Sales</h3>
+        <span style="color:var(--text-dim)">
+            {% if view_type == 'summary' %}Summary View{% else %}Detailed List{% endif %}
+        </span>
     </div>
     <div style="font-size: 2rem; font-weight: bold; color: var(--accent);">
         {{ total_sales }} pts
@@ -18,21 +20,35 @@
     <table class="report-table">
         <thead>
             <tr>
-                <th>Order ID</th>
-                <th>Date</th>
-                <th>Sponsor Org</th>
-                <th>Driver</th>
-                <th style="text-align: right;">Points Spent</th>
+                {% if view_type == 'summary' %}
+                    <!-- HEADER FOR SUMMARY -->
+                    <th>Sponsor Organization</th>
+                    <th style="text-align: right;">Total Points Spent</th>
+                {% else %}
+                    <!-- HEADER FOR DETAILED -->
+                    <th>Order ID</th>
+                    <th>Date</th>
+                    <th>Sponsor Org</th>
+                    <th>Driver</th>
+                    <th style="text-align: right;">Points Spent</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
             {% for row in report_data %}
             <tr>
-                <td>#{{ row.order_id }}</td>
-                <td>{{ row.date|date:"Y-m-d H:i" }}</td>
-                <td>{{ row.sponsor }}</td>
-                <td>{{ row.driver }}</td>
-                <td style="text-align: right; font-weight: bold;">{{ row.points }}</td>
+                {% if view_type == 'summary' %}
+                    <!-- ROW FOR SUMMARY -->
+                    <td style="font-weight: bold; font-size: 1.1em;">{{ row.sponsor }}</td>
+                    <td style="text-align: right; font-family: monospace;">{{ row.points }}</td>
+                {% else %}
+                    <!-- ROW FOR DETAILED -->
+                    <td>#{{ row.order_id }}</td>
+                    <td>{{ row.date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ row.sponsor }}</td>
+                    <td>{{ row.driver }}</td>
+                    <td style="text-align: right; font-weight: bold;">{{ row.points }}</td>
+                {% endif %}
             </tr>
             {% empty %}
             <tr>

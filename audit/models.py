@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 import ipaddress
+from django.contrib.auth.signals import user_logged_in, user_login_failed
+from django.dispatch import receiver
 
 
 # audit model for login attempts
@@ -62,3 +64,34 @@ class Report(models.Model):
     class Meta:
         verbose_name = "Report"
         
+@receiver(user_logged_in)
+def log_successful_login(sender, request, user, **kwargs):
+    """
+    Listens for successful logins and records them in the Audit Log.
+    """
+    ip = request.META.get('REMOTE_ADDR')
+    ua = request.META.get('HTTP_USER_AGENT')
+    
+    LoginAttempt.objects.create(
+        username=user.username,
+        ip_address=ip,
+        user_agent=ua,
+        successful=True
+    )
+
+@receiver(user_login_failed)
+def log_failed_login(sender, credentials, request, **kwargs):
+    """
+    Listens for failed logins and records them in the Audit Log.
+    (This ensures they show up in your Admin Audit Report)
+    """
+    username = credentials.get('username', 'unknown') if credentials else 'unknown'
+    ip = request.META.get('REMOTE_ADDR')
+    ua = request.META.get('HTTP_USER_AGENT')
+    
+    LoginAttempt.objects.create(
+        username=username,
+        ip_address=ip,
+        user_agent=ua,
+        successful=False
+    )

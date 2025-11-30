@@ -184,10 +184,17 @@ def sponsor_audit_log(request):
 @user_passes_test(is_admin)
 def admin_sales_by_sponsor(request):
     form = AdminFilterForm(request.GET)
+    
+    start = datetime(2000, 1, 1).date()
+    end = timezone.now().date()
+    view_type = 'detailed'
+    
     orders = Order.objects.exclude(status='CANCELLED').select_related('organization', 'driver')
     
     if form.is_valid():
         start, end = get_date_range(form.cleaned_data)
+        view_type = form.cleaned_data.get('view_type') or 'detailed'
+        
         orders = orders.filter(created_at__date__range=(start, end))
         
         sponsor_profile = form.cleaned_data.get('sponsor')
@@ -196,27 +203,50 @@ def admin_sales_by_sponsor(request):
 
     report_data = []
     total_sales_points = 0
-    
-    for order in orders:
-        points = sum(item.total_price_points for item in order.items.all())
-        report_data.append({
-            'order_id': order.id,
-            'date': order.created_at,
-            'sponsor': order.organization.name if order.organization else "N/A",
-            'driver': order.driver.username,
-            'points': points
-        })
-        total_sales_points += points
+
+    if view_type == 'summary':
+        summary_map = {}
+        
+        for order in orders:
+            points = sum(item.total_price_points for item in order.items.all())
+            org_name = order.organization.name if order.organization else "No Org"
+            
+            if org_name not in summary_map:
+                summary_map[org_name] = 0
+            summary_map[org_name] += points
+            total_sales_points += points
+        for org_name, total in summary_map.items():
+            report_data.append({
+                'sponsor': org_name,
+                'points': total
+            })
+            
+    else: 
+        for order in orders:
+            points = sum(item.total_price_points for item in order.items.all())
+            report_data.append({
+                'order_id': order.id,
+                'date': order.created_at,
+                'sponsor': order.organization.name if order.organization else "N/A",
+                'driver': order.driver.username,
+                'points': points
+            })
+            total_sales_points += points
 
     if 'download_csv' in request.GET:
-        headers = ['Order ID', 'Date', 'Sponsor Org', 'Driver', 'Points Spent']
-        rows = [[d['order_id'], d['date'], d['sponsor'], d['driver'], d['points']] for d in report_data]
-        return export_csv("sales_by_sponsor", headers, rows)
+        if view_type == 'summary':
+            headers = ['Sponsor Organization', 'Total Points Spent']
+            rows = [[d['sponsor'], d['points']] for d in report_data]
+        else:
+            headers = ['Order ID', 'Date', 'Sponsor Org', 'Driver', 'Points Spent']
+            rows = [[d['order_id'], d['date'], d['sponsor'], d['driver'], d['points']] for d in report_data]
+        return export_csv(f"sales_sponsor_{view_type}", headers, rows)
 
     return render(request, 'reports/admin_sales_sponsor.html', {
         'form': form, 
         'report_data': report_data,
-        'total_sales': total_sales_points
+        'total_sales': total_sales_points,
+        'view_type': view_type
     })
 
 @login_required
@@ -224,9 +254,12 @@ def admin_sales_by_sponsor(request):
 def admin_sales_by_driver(request):
     form = AdminSalesDriverForm(request.GET)
     orders = Order.objects.exclude(status='CANCELLED').select_related('driver', 'organization')
+    
+    view_type = 'detailed'
 
     if form.is_valid():
         start, end = get_date_range(form.cleaned_data)
+        view_type = form.cleaned_data.get('view_type') or 'detailed'
         orders = orders.filter(created_at__date__range=(start, end))
         
         if form.cleaned_data.get('sponsor'):
@@ -235,22 +268,48 @@ def admin_sales_by_driver(request):
             orders = orders.filter(driver=form.cleaned_data['driver'])
 
     report_data = []
-    for order in orders:
-        points = sum(item.total_price_points for item in order.items.all())
-        report_data.append({
-            'driver': order.driver.username,
-            'sponsor': order.organization.name if order.organization else "N/A",
-            'date': order.created_at,
-            'item_count': order.items.count(),
-            'points': points
-        })
+
+    if view_type == 'summary':
+        summary_map = {}
+        for order in orders:
+            points = sum(item.total_price_points for item in order.items.all())
+            d_name = order.driver.username
+            
+            if d_name not in summary_map:
+                summary_map[d_name] = {'points': 0, 'sponsor': order.organization.name}
+            summary_map[d_name]['points'] += points
+            
+        for driver, data in summary_map.items():
+            report_data.append({
+                'driver': driver,
+                'sponsor': data['sponsor'],
+                'points': data['points']
+            })
+    else:
+        for order in orders:
+            points = sum(item.total_price_points for item in order.items.all())
+            report_data.append({
+                'driver': order.driver.username,
+                'sponsor': order.organization.name if order.organization else "N/A",
+                'date': order.created_at,
+                'item_count': order.items.count(),
+                'points': points
+            })
 
     if 'download_csv' in request.GET:
-        headers = ['Driver', 'Sponsor', 'Date', 'Items', 'Points']
-        rows = [[d['driver'], d['sponsor'], d['date'], d['item_count'], d['points']] for d in report_data]
-        return export_csv("sales_by_driver", headers, rows)
+        if view_type == 'summary':
+            headers = ['Driver', 'Sponsor', 'Total Points']
+            rows = [[d['driver'], d['sponsor'], d['points']] for d in report_data]
+        else:
+            headers = ['Driver', 'Sponsor', 'Date', 'Items', 'Points']
+            rows = [[d['driver'], d['sponsor'], d['date'], d['item_count'], d['points']] for d in report_data]
+        return export_csv(f"sales_driver_{view_type}", headers, rows)
 
-    return render(request, 'reports/admin_sales_driver.html', {'form': form, 'report_data': report_data})
+    return render(request, 'reports/admin_sales_driver.html', {
+        'form': form, 
+        'report_data': report_data, 
+        'view_type': view_type
+    })
 
 @login_required
 @user_passes_test(is_admin)
@@ -260,7 +319,7 @@ def admin_invoice(request):
     
     if form.is_valid():
         start, end = get_date_range(form.cleaned_data)
-        
+   
         if form.cleaned_data.get('sponsor'):
             orgs = [form.cleaned_data['sponsor'].organization]
         else:
@@ -273,37 +332,48 @@ def admin_invoice(request):
                 created_at__date__range=(start, end)
             ).exclude(status='CANCELLED')
             
-            driver_summaries = {}
+            driver_map = {}
             total_points = 0
             
             for order in org_orders:
                 p_cost = sum(item.total_price_points for item in order.items.all())
                 d_name = order.driver.username
                 
-                if d_name not in driver_summaries:
-                    driver_summaries[d_name] = 0
-                driver_summaries[d_name] += p_cost
+                if d_name not in driver_map:
+                    driver_map[d_name] = 0
+                driver_map[d_name] += p_cost
                 total_points += p_cost
             
-            total_fee = float(total_points) * float(org.point_value_usd)
+         
+            rate = org.point_value_usd  
+            driver_rows = []
+            
+            for d_name, pts in driver_map.items():
+                fee = pts * rate
+                driver_rows.append({
+                    'name': d_name,      
+                    'points': pts,       
+                    'fee': f"{fee:.2f}" 
+                })
+            
+            total_fee = total_points * rate
             
             invoice_data.append({
                 'org_name': org.name,
-                'drivers': driver_summaries,
+                'drivers': driver_rows, 
                 'total_points': total_points,
-                'total_fee': round(total_fee, 2),
+                'total_fee': f"{total_fee:.2f}",
                 'point_rate': org.point_value_usd
             })
 
     if 'download_csv' in request.GET:
-        headers = ['Organization', 'Driver', 'Points Spent', 'Rate (USD)', 'Fee (USD)']
+        headers = ['Organization', 'Driver', 'Points Spent', 'Rate', 'Fee (USD)']
         rows = []
         for inv in invoice_data:
-            for driver, pts in inv['drivers'].items():
-                fee = float(pts) * float(inv['point_rate'])
-                rows.append([inv['org_name'], driver, pts, inv['point_rate'], round(fee, 2)])
+            for d in inv['drivers']:
+                rows.append([inv['org_name'], d['name'], d['points'], inv['point_rate'], d['fee']])
             rows.append([inv['org_name'], 'TOTAL', inv['total_points'], inv['point_rate'], inv['total_fee']])
-            rows.append([]) 
+            rows.append([])
         return export_csv("invoices", headers, rows)
 
     return render(request, 'reports/admin_invoice.html', {'form': form, 'invoices': invoice_data})
