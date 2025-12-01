@@ -171,12 +171,14 @@ PASSWORD_GRACE_ALLOWLIST = [
     "/static/"
 ]
 
-# Mailtrap SMTP for dev/testing
+# =========================
+# EMAIL (Mailtrap Sandbox)
+# =========================
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "sandbox.smtp.mailtrap.io"
 EMAIL_PORT = 2525
-EMAIL_HOST_USER = "d46148c7c6c01a"              # your Mailtrap username
-EMAIL_HOST_PASSWORD = "22d3039369bd98"    # the full password from Mailtrap
+EMAIL_HOST_USER = "d4c6024865867c"
+EMAIL_HOST_PASSWORD = "04ef43185ceac3"   # paste full password here
 EMAIL_USE_TLS = True
 
 DEFAULT_FROM_EMAIL = "no-reply@gooddrivers.local"
