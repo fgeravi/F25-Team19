@@ -3,7 +3,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse, HttpResponseForbidden
 from django.utils.timezone import localtime
-from django.views.decorators.http import require_GET 
+from django.views.decorators.http import require_GET
+from django.urls import reverse
 import csv
 
 from .models import DriverApplication
@@ -201,6 +202,7 @@ def handle_unaccept(application, sponsor_profile):
         driver_profile.organization = None
         driver_profile.save(update_fields=["organization"])
 
+    # Remove the link to this sponsor
     DriverSponsor.objects.filter(
         driver=driver_profile,
         sponsor=sponsor_profile
@@ -209,6 +211,9 @@ def handle_unaccept(application, sponsor_profile):
     org = sponsor_profile.organization
     sponsor_name = org.name if org else sponsor_profile.user.username
 
+    # Build a link back to the driver's applications page
+    link = reverse("driver_applications_list")
+
     # Send a driver notification that they were dropped
     send_driver_notification(
         driver_user=driver,
@@ -216,8 +221,6 @@ def handle_unaccept(application, sponsor_profile):
         notif_type="dropped",
         metadata_extra={"link": link},
     )
-
-
 
 
 # -----------------------------------------
