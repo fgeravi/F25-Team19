@@ -1,32 +1,83 @@
 {% extends "base.html" %}
+{% block title %}My Sponsors{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1>Sponsors in Your Organization</h1>
-    <p>Here is a list of sponsors you can contact for assistance.</p>
-    <hr>
+<div class="home-wrap">
 
-    <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            <thead>
-                <tr>
-                    <th scope="col">Name</th>
-                    <th scope="col">Email Address</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for sponsor_profile in sponsors %}
-                <tr>
-                    <td>{{ sponsor_profile.user.first_name }} {{ sponsor_profile.user.last_name }}</td>
-                    <td>{{ sponsor_profile.user.email }}</td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="2" class="text-center">No sponsors found for your organization.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+  <!-- Header panel -->
+  <div class="panel" style="margin-bottom:16px;">
+    <h1 style="margin:0 0 6px 0;">My Sponsors</h1>
+    <p class="text-muted" style="margin:0;">
+      These are the sponsors in your organization that you can reach out to for support and rewards.
+    </p>
+  </div>
+
+  {% if sponsors %}
+    <!-- Summary strip -->
+    <div class="panel" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+      <div>
+        <strong>{{ sponsors|length }}</strong> sponsor{% if sponsors|length != 1 %}s{% endif %} in your organization
+      </div>
+      <div class="text-muted small">
+        Need help? Pick a sponsor below to email them directly.
+      </div>
     </div>
+
+    <!-- Card grid -->
+    <div style="
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap:16px;
+    ">
+      {% for sponsor in sponsors %}
+        <div class="card" style="padding:14px 16px; display:flex; flex-direction:column; gap:8px;">
+          <div>
+            <div style="font-weight:600; font-size:1rem;">
+              {{ sponsor.user.get_full_name|default:sponsor.user.username }}
+            </div>
+            {% if sponsor.company_name or sponsor.organization %}
+              <div class="text-muted small">
+                {% if sponsor.company_name %}
+                  {{ sponsor.company_name }}
+                {% elif sponsor.organization %}
+                  {{ sponsor.organization.name }}
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="text-muted small">
+            Email: 
+            <a href="mailto:{{ sponsor.user.email }}">
+              {{ sponsor.user.email }}
+            </a>
+          </div>
+
+          {% if sponsor.organization %}
+            <div class="small" style="margin-top:4px;">
+              <span class="badge" style="
+                display:inline-block;
+                padding:2px 8px;
+                border-radius:999px;
+                background:rgba(255,255,255,0.05);
+                border:1px solid rgba(255,255,255,0.12);
+                font-size:11px;
+              ">
+                Organization: {{ sponsor.organization.name }}
+              </span>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <div class="panel">
+      <p class="text-muted" style="margin:0;">
+        You don't currently have any sponsors in your organization.
+      </p>
+    </div>
+  {% endif %}
+
 </div>
 {% endblock %}
