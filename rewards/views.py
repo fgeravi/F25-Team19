@@ -100,8 +100,6 @@ def point_dashboard(request):
         'sponsorships': sponsorships,
         'selected_sponsor': selected_ds.sponsor if selected_ds else None,
         'selected_sponsor_id': selected_ds.sponsor.id if selected_ds else '',
-        # 👇 THIS is the only new line
-        'header_total_points': current_balance,
     }
     return render(request, 'rewards/dashboard.html', context)
 

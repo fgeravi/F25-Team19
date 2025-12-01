@@ -2,46 +2,120 @@
 {% block title %}Notification Settings{% endblock %}
 
 {% block content %}
-<h1>Notification Settings</h1>
+<div class="home-wrap" style="max-width:720px;margin:auto;">
 
-<p>Control what alerts you get. You’ll still get critical account/security messages.</p>
-
-<form method="post" novalidate>
-  {% csrf_token %}
-
-  <div class="form-group" style="margin-bottom: 1rem;">
-    <label style="display: flex; align-items: center;">
-      {{ form.notify_points_change }}
-      <span style="margin-left: 0.5rem;">Notify me when my points are added or removed</span>
-    </label>
-    {% if form.notify_points_change.errors %}
-        <div style="color:red;">{{ form.notify_points_change.errors }}</div>
-    {% endif %}
+  <div class="panel" style="margin-bottom:20px;">
+    <h1 style="margin:0 0 8px 0;">Notification Settings</h1>
+    <p class="text-muted" style="margin:0;">
+      Control what alerts you receive. Critical account and security messages will always be sent.
+    </p>
   </div>
 
-  <div class="form-group" style="margin-bottom: 1rem;">
-    <label style="display: flex; align-items: center;">
-      {{ form.notify_order_placed }}
-      <span style="margin-left: 0.5rem;">Notify me when I place an order</span>
-    </label>
-    {% if form.notify_order_placed.errors %}
-        <div style="color:red;">{{ form.notify_order_placed.errors }}</div>
-    {% endif %}
+  <div class="panel" style="padding:24px;">
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <!-- Points Notification -->
+      <div class="card" style="padding:18px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div>
+            <h3 style="margin:0;">Points Updates</h3>
+            <p class="text-muted" style="margin:2px 0 0 0;font-size:14px;">
+              Alerts when your points are added or removed.
+            </p>
+          </div>
+
+          <label class="switch">
+            {{ form.notify_points_change }}
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        {% if form.notify_points_change.errors %}
+          <div style="color:red;margin-top:8px;">{{ form.notify_points_change.errors }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Order Notification -->
+      <div class="card" style="padding:18px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div>
+            <h3 style="margin:0;">Order Updates</h3>
+            <p class="text-muted" style="margin:2px 0 0 0;font-size:14px;">
+              Alerts when you place an order or if its status changes.
+            </p>
+          </div>
+
+          <label class="switch">
+            {{ form.notify_order_placed }}
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        {% if form.notify_order_placed.errors %}
+          <div style="color:red;margin-top:8px;">{{ form.notify_order_placed.errors }}</div>
+        {% endif %}
+      </div>
+      
+      <!-- Always Notify -->
+      <div class="card" style="
+          padding:18px;
+          background:#eceff1;
+          border-left:4px solid var(--accent);
+      ">
+        <h4 style="margin:0;color:#111;">Critical Notifications</h4>
+        <p style="margin:4px 0 0 0;font-size:14px;color:#222;">
+          You will <strong>always</strong> be notified if a sponsor removes you from their program.
+        </p>
+      </div>
+
+      <button type="submit" class="btn-pill" 
+              style="margin-top:20px;width:100%;max-width:240px;">
+        Save Settings
+      </button>
+    </form>
   </div>
+</div>
 
-  <p style="font-size: 0.9rem; color:#555; margin-bottom:1rem;">
-    You will always be notified if a sponsor drops you from the program.
-  </p>
-
-  <button type="submit" style="
-      background:#007bff;
-      color:white;
-      border:none;
-      padding:0.6rem 1rem;
-      border-radius:4px;
-      cursor:pointer;">
-    Save Settings
-  </button>
-</form>
-
+<!-- Switch Styling -->
+<style>
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 24px;
+  }
+  /* Hide default checkbox */
+  .switch input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0;
+    right: 0; bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: var(--accent);
+  }
+  input:checked + .slider:before {
+    transform: translateX(24px);
+  }
+</style>
 {% endblock %}

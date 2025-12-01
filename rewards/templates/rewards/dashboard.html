@@ -1,32 +1,55 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="container mt-4">
-    <h1>My Points Dashboard</h1>
-    <hr>
+{% block title %}My Points Dashboard{% endblock %}
 
-    {# -------- Sponsor Switcher (only if driver has sponsors) -------- #}
-    {% if sponsorships and sponsorships|length > 0 %}
-      <form method="get" class="row g-2 align-items-end mb-3">
+{% block content %}
+<div class="home-wrap" style="max-width:1000px;margin:auto;">
+
+  <!-- Header -->
+  <div class="panel" style="margin-top:16px;margin-bottom:16px;">
+    <h1 style="margin:0 0 6px 0;">My Points Dashboard</h1>
+    <p class="text-muted" style="margin:0;">
+      Track your rewards, earnings, and transaction history with your sponsors.
+    </p>
+  </div>
+
+  {# -------- Sponsor Switcher (only if driver has sponsors) -------- #}
+  {% if sponsorships and sponsorships|length > 0 %}
+    <div class="panel" style="margin-bottom:20px;">
+      <form method="get" class="row g-2 align-items-end">
         {# Preserve existing query/sort/period when switching sponsors #}
         <input type="hidden" name="q" value="{{ search_query }}">
         <input type="hidden" name="sort" value="{{ sort_order }}">
         <input type="hidden" name="period" value="{{ period }}">
 
-        <div class="col-md-6">
-          <label for="sponsor" class="form-label">Sponsor</label>
+        <div class="col-md-7">
+          <label for="sponsor" class="form-label" style="font-weight:600;">Sponsor</label>
           <select id="sponsor" name="sponsor" class="form-select" onchange="this.form.submit()">
             {% for link in sponsorships %}
-              <option value="{{ link.sponsor.id }}" {% if link.sponsor.id|stringformat:"s" == selected_sponsor_id|stringformat:"s" %}selected{% endif %}>
-                {{ link.sponsor.company_name }} — {{ link.points }} pts
+              <option value="{{ link.sponsor.id }}"
+                      {% if link.sponsor.id|stringformat:"s" == selected_sponsor_id|stringformat:"s" %}selected{% endif %}>
+                {# Prefer company_name; fall back to sponsor's user name #}
+                {% if link.sponsor.company_name %}
+                  {{ link.sponsor.company_name }}
+                {% elif link.sponsor.user.get_full_name %}
+                  {{ link.sponsor.user.get_full_name }}
+                {% else %}
+                  {{ link.sponsor.user.username }}
+                {% endif %}
+                {% if link.sponsor.organization %}
+                  — {{ link.sponsor.organization.name }}
+                {% endif %}
               </option>
             {% endfor %}
           </select>
+          <p class="text-muted" style="margin-top:6px;font-size:13px;">
+            Switch sponsors to view a different point balance and transaction history.
+          </p>
         </div>
 
-        <div class="col-md-6 text-end">
+        <div class="col-md-5 text-md-end text-start" style="margin-top:8px;">
           {% if selected_sponsor and selected_sponsor.organization %}
-            <a class="btn btn-outline-primary mt-4"
+            <a class="btn-pill btn-outline"
                href="{% url 'catalogue:view_catalogue' selected_sponsor.organization.id %}">
               Browse {{ selected_sponsor.company_name }} Catalogue
             </a>
@@ -34,107 +57,156 @@
         </div>
       </form>
 
-      {# Optional sponsor-specific welcome, if configured on org #}
+      {# Sponsor-specific welcome message #}
       {% if selected_sponsor and selected_sponsor.organization and selected_sponsor.organization.welcome_config and selected_sponsor.organization.welcome_config.is_active and selected_sponsor.organization.welcome_config.welcome_text %}
-        <div class="alert alert-info my-3" role="alert" style="white-space: pre-line;">
+        <div class="card"
+             style="margin-top:16px;padding:16px;background:#eceff1;border-left:4px solid var(--accent);">
+          <h5 style="margin:0 0 6px 0;color:#111;">
+            Message from {{ selected_sponsor.company_name }}
+          </h5>
+          <p style="margin:0;color:#222;white-space: pre-line;">
             {{ selected_sponsor.organization.welcome_config.welcome_text }}
+          </p>
         </div>
       {% endif %}
-    {% else %}
-      {# Fallback to your original welcome (no sponsors yet) #}
+    </div>
+  {% else %}
+    {# Fallback if no sponsors yet #}
+    <div class="panel" style="margin-bottom:20px;">
       {% with org=request.user.driverprofile.organization %}
-          {% if org and org.welcome_config and org.welcome_config.is_active and org.welcome_config.welcome_text %}
-              <div class="alert alert-info my-3" role="alert" style="white-space: pre-line;">
-                  {{ org.welcome_config.welcome_text }}
-              </div>
-          {% endif %}
+        {% if org and org.welcome_config and org.welcome_config.is_active and org.welcome_config.welcome_text %}
+          <div class="card"
+               style="padding:16px;background:#eceff1;border-left:4px solid var(--accent);">
+            <h5 style="margin:0 0 6px 0;color:#111;">Welcome</h5>
+            <p style="margin:0;color:#222;white-space: pre-line;">
+              {{ org.welcome_config.welcome_text }}
+            </p>
+          </div>
+        {% else %}
+          <p class="text-muted" style="margin:0;">
+            You don't have an active sponsor selected yet. Apply to a sponsor from your home dashboard to begin earning points.
+          </p>
+        {% endif %}
       {% endwith %}
-    {% endif %}
+    </div>
+  {% endif %}
 
-    <div class="row">
-        <div class="col-md-6 mb-4">
-            <div class="card text-center">
-                <div class="card-header">
-                    Current Point Balance
-                </div>
-                <div class="card-body">
-                    <h2 class="card-title">{{ current_balance }} Points</h2>
-                </div>
-            </div>
+  <!-- Summary cards -->
+  <div class="row" style="margin-bottom:20px;">
+    <div class="col-md-6 mb-3">
+      <div class="card text-center" style="border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+        <div class="card-header" style="font-weight:600;">
+          Current Point Balance
         </div>
-
-        <div class="col-md-6 mb-4">
-            <div class="card text-center text-white bg-success">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <span>Points Earned</span>
-                    <div class="btn-group btn-group-sm" role="group">
-                        <a href="?period=weekly&sponsor={{ selected_sponsor_id }}&q={{ search_query }}&sort={{ sort_order }}" 
-                           class="btn btn-sm {% if period == 'weekly' %}btn-light{% else %}btn-outline-light{% endif %}">
-                           Week
-                        </a>
-                        <a href="?period=monthly&sponsor={{ selected_sponsor_id }}&q={{ search_query }}&sort={{ sort_order }}" 
-                           class="btn btn-sm {% if period == 'monthly' %}btn-light{% else %}btn-outline-light{% endif %}">
-                           Month
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body">
-                    <h2 class="card-title">+{{ earnings }} Points</h2>
-                </div>
-            </div>
+        <div class="card-body">
+          <p class="text-muted" style="margin:0 0 4px 0;font-size:13px;">
+            {% if selected_sponsor %}
+              With: <strong>{{ selected_sponsor.company_name }}</strong>
+            {% endif %}
+          </p>
+          <h2 class="card-title" style="margin:4px 0 0 0;font-size:32px;font-weight:700;">
+            {{ current_balance }} Points
+          </h2>
         </div>
+      </div>
     </div>
 
-    <h3>Transaction History</h3>
+    <div class="col-md-6 mb-3">
+      <div class="card text-center text-white bg-success" style="border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.05);">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span style="font-weight:600;">Points Earned</span>
+          <div class="btn-group btn-group-sm" role="group" aria-label="Earnings period">
+            <a href="?period=weekly&sponsor={{ selected_sponsor_id }}&q={{ search_query }}&sort={{ sort_order }}" 
+               class="btn btn-sm {% if period == 'weekly' %}btn-light{% else %}btn-outline-light{% endif %}">
+               Week
+            </a>
+            <a href="?period=monthly&sponsor={{ selected_sponsor_id }}&q={{ search_query }}&sort={{ sort_order }}" 
+               class="btn btn-sm {% if period == 'monthly' %}btn-light{% else %}btn-outline-light{% endif %}">
+               Month
+            </a>
+          </div>
+        </div>
+        <div class="card-body">
+          <p class="text-white-50" style="margin:0 0 4px 0;font-size:13px;">
+            Total points earned in the selected period.
+          </p>
+          <h2 class="card-title" style="margin:4px 0 0 0;font-size:32px;font-weight:700;">
+            +{{ earnings }} Points
+          </h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transaction history -->
+  <div class="panel">
+    <div class="d-flex justify-content-between align-items-center mb-3" style="gap:12px;">
+      <div>
+        <h3 style="margin:0;">Transaction History</h3>
+        <p class="text-muted" style="margin:2px 0 0 0;font-size:13px;">
+          View how your points have changed over time.
+        </p>
+      </div>
+    </div>
 
     <form method="get" class="mb-3">
-        {# Keep current sponsor and period selection when filtering #}
-        {% if selected_sponsor_id %}
-          <input type="hidden" name="sponsor" value="{{ selected_sponsor_id }}">
-        {% endif %}
-        <input type="hidden" name="period" value="{{ period }}">
+      {# Keep current sponsor and period selection when filtering #}
+      {% if selected_sponsor_id %}
+        <input type="hidden" name="sponsor" value="{{ selected_sponsor_id }}">
+      {% endif %}
+      <input type="hidden" name="period" value="{{ period }}">
 
-        <div class="input-group">
-            <input type="text" name="q" class="form-control" placeholder="Search by reason..." value="{{ search_query }}">
-            <select name="sort" class="form-select" style="max-width: 200px;">
-                <option value="-date" {% if sort_order == '-date' %}selected{% endif %}>Newest First</option>
-                <option value="date" {% if sort_order == 'date' %}selected{% endif %}>Oldest First</option>
-                <option value="-point_change_amt" {% if sort_order == '-point_change_amt' %}selected{% endif %}>Amount (High to Low)</option>
-                <option value="point_change_amt" {% if sort_order == 'point_change_amt' %}selected{% endif %}>Amount (Low to High)</option>
-            </select>
-            <button class="btn btn-outline-primary" type="submit">Apply</button>
-        </div>
+      <div class="input-group">
+        <input type="text"
+               name="q"
+               class="form-control"
+               placeholder="Search by reason..."
+               value="{{ search_query }}">
+        <select name="sort" class="form-select" style="max-width: 220px;">
+          <option value="-date" {% if sort_order == '-date' %}selected{% endif %}>Newest First</option>
+          <option value="date" {% if sort_order == 'date' %}selected{% endif %}>Oldest First</option>
+          <option value="-point_change_amt" {% if sort_order == '-point_change_amt' %}selected{% endif %}>Amount (High to Low)</option>
+          <option value="point_change_amt" {% if sort_order == 'point_change_amt' %}selected{% endif %}>Amount (Low to High)</option>
+        </select>
+        <button class="btn btn-outline-primary" type="submit">Filter</button>
+      </div>
     </form>
     
-    <table class="table table-striped">
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle mb-0">
         <thead>
-            <tr>
-                <th scope="col">Date</th>
-                <th scope="col">Amount</th>
-                <th scope="col">Reason</th>
-                <th scope="col">New Balance</th>
-            </tr>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Amount</th>
+            <th scope="col">Reason</th>
+            <th scope="col">New Balance</th>
+          </tr>
         </thead>
         <tbody>
-            {% for trx in transactions %}
-                <tr>
-                    <td>{{ trx.date|date:"N j, Y, P" }}</td>
-                    <td>
-                        {% if trx.point_change_amt > 0 %}
-                            <span class="text-success">+{{ trx.point_change_amt }}</span>
-                        {% else %}
-                            <span class="text-danger">{{ trx.point_change_amt }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ trx.reason|default:"No reason provided" }}</td>
-                    <td>{{ trx.new_point_balance }}</td>
-                </tr>
-            {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center">You have no transactions yet.</td>
-                </tr>
-            {% endfor %}
+          {% for trx in transactions %}
+            <tr>
+              <td>{{ trx.date|date:"N j, Y, P" }}</td>
+              <td>
+                {% if trx.point_change_amt > 0 %}
+                  <span class="text-success fw-semibold">+{{ trx.point_change_amt }}</span>
+                {% else %}
+                  <span class="text-danger fw-semibold">{{ trx.point_change_amt }}</span>
+                {% endif %}
+              </td>
+              <td>{{ trx.reason|default:"No reason provided" }}</td>
+              <td>{{ trx.new_point_balance }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="4" class="text-center text-muted" style="padding:16px;">
+                You have no transactions yet.
+              </td>
+            </tr>
+          {% endfor %}
         </tbody>
-    </table>
+      </table>
+    </div>
+  </div>
+
 </div>
 {% endblock %}

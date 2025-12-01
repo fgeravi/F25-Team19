@@ -1,46 +1,85 @@
 {% extends "base.html" %}
+{% block title %}My Applications{% endblock %}
 
 {% block content %}
-<h1>My Applications</h1>
+<div class="home-wrap" style="max-width: 900px; margin: auto;">
 
-{% if perms.audit.can_download_own_reports %}
-  {% include "applications/download_csv_button.html" with label="Download My CSV" %}
-{% endif %}
+  <div class="panel" style="margin-bottom: 20px;">
+    <h1 style="margin:0 0 8px 0;">My Applications</h1>
+    <p class="text-muted" style="margin:0;">
+      View the sponsors you’ve applied to and track the status of each application.
+    </p>
+  </div>
 
-{% if messages %}
-  <ul class="messages">
-    {% for message in messages %}
-      <li class="{{ message.tags }}">{{ message }}</li>
-    {% endfor %}
-  </ul>
-{% endif %}
+  {% if perms.audit.can_download_own_reports %}
+    {% include "applications/download_csv_button.html" with label="Download My CSV" %}
+  {% endif %}
 
-{% if applications %}
-<table>
-    <thead>
-        <tr>
-            <th>Sponsor</th>
-            <th>Organization</th>
-            <th>Status</th>
-            <th>Applied On</th>
-            <th>Message</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for app in applications %}
-        <tr>
-            <td>{{ app.sponsor.user.username }}</td>
-            <td>{{ app.sponsor.organization.name }}</td>
-            <td>{{ app.status|capfirst }}</td>
-            <td>{{ app.created_at|date:"M d, Y H:i" }}</td>
-            <td>{{ app.message|default:"-" }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p>You haven't applied to any sponsors yet.</p>
-{% endif %}
+  {% if messages %}
+    <div style="margin-bottom: 16px;">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
 
-<p><a href="{% url 'apply_to_sponsor' %}">Apply to a new sponsor</a></p>
+  {% if applications %}
+    <div class="panel" style="padding: 0;">
+      <div style="padding: 16px; border-bottom: 1px solid #ddd;">
+        <h3 style="margin:0;">Application History</h3>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-striped table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Sponsor</th>
+              <th>Organization</th>
+              <th>Status</th>
+              <th>Applied On</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for app in applications %}
+              <tr>
+                <td><strong>{{ app.sponsor.user.username }}</strong></td>
+                <td>{{ app.sponsor.organization.name }}</td>
+
+                <td>
+                  {% if app.status == "accepted" %}
+                    <span style="color: green; font-weight: 600;">Accepted</span>
+                  {% elif app.status == "rejected" %}
+                    <span style="color: red; font-weight: 600;">Rejected</span>
+                  {% else %}
+                    <span style="color: #c59f00; font-weight: 600;">Pending</span>
+                  {% endif %}
+                </td>
+
+                <td>{{ app.created_at|date:"M d, Y — H:i" }}</td>
+                <td>{{ app.message|default:"-" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  {% else %}
+    <div class="panel">
+      <p class="text-muted" style="margin:0;">
+        You haven't applied to any sponsors yet.
+      </p>
+    </div>
+  {% endif %}
+
+  <div style="margin-top: 24px; text-align: center;">
+    <a href="{% url 'apply_to_sponsor' %}" class="btn-pill">
+      Apply to a New Sponsor
+    </a>
+  </div>
+
+</div>
 {% endblock %}
