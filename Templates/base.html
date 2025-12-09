@@ -28,12 +28,10 @@
     {% endif %}
   {% endif %}
 
-  {% if request.resolver_match
-        and request.resolver_match.namespace == 'notifications'
-        and request.resolver_match.url_name == 'list' %}
-        notifications-page
-  
-  ">
+  {% if request.resolver_match and request.resolver_match.namespace == 'notifications' and request.resolver_match.url_name == 'list' %}
+    notifications-page
+  {% endif %}
+">
 
     <!-- Hidden global CSRF token for AJAX -->
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
