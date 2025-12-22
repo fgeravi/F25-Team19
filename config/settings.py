@@ -103,20 +103,16 @@ SESSION_WARNING_TIME = 600
 # =========================
 # DATABASE CONFIG
 # =========================
-DB_NAME = config("DB_NAME", default="Team19_DB")
-DB_USER = config("DB_USER", default="Team19")
-DB_PASSWORD = config("DB_PASSWORD", default="")
-DB_HOST = config("DB_HOST", default="cpsc4910-f25.cobd8enwsupz.us-east-1.rds.amazonaws.com")
-DB_PORT = config("DB_PORT", default="3306")
+# DB_NAME = config("DB_NAME", default="Team19_DB")
+# DB_USER = config("DB_USER", default="Team19")
+# DB_PASSWORD = config("DB_PASSWORD", default="")
+# DB_HOST = config("DB_HOST", default="cpsc4910-f25.cobd8enwsupz.us-east-1.rds.amazonaws.com")
+# DB_PORT = config("DB_PORT", default="3306")
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': DB_NAME,
-        'USER': DB_USER,
-        'PASSWORD': DB_PASSWORD,
-        'HOST': DB_HOST,
-        'PORT': DB_PORT,
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
 
